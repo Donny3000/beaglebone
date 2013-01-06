@@ -1,6 +1,10 @@
 #ifndef __PWM_TASK_PROC_H
 #define __PWM_TASK_PROC_H
 
+#define CALC_PULSE_WIDTH(min, max, percentage) (min + div((max - min) * percentage, 100))
+#define RANGE_MAP100(c, d, x) (c + div100((d - c) * x))
+#define SWITCHING_FREQ  1000000
+
 typedef unsigned char uchar;
 typedef unsigned int  uint;
 typedef unsigned long ulong;

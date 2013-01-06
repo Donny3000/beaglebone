@@ -84,15 +84,31 @@
  * DIS  - Pull type selection is inactive
  * EN   - Pull type selection is active
  * M0   - Mode 0
+ *
+ * Control register field description
+ * --------------------------------------------------------------------
+ *  Bit |          | Value  | Description
+ * --------------------------------------------------------------------
+ * 31-7 | Reserved |        | Reserved. Read returns 0
+ * --------------------------------------------------------------------
+ * 6    | SLEWCTRL |        | Select between faster of slower slew rate
+ *      |          | 0      | Fast
+ *      |          | 1      | Slow
+ * --------------------------------------------------------------------
+ * 5    | RXACTIVE |        | Input enabled value for the pad. Set to 0
+ *      |          |        | for output only. Set to 1 for input of output
+ *      |          | 0      | Receiver disabled
+ *      |          | 1      | Receiver Enabled
  */
 
-#define IEN                     (1 << 8)
-
-#define IDIS                    (0 << 8)
-#define PTU                     (1 << 4)
-#define PTD                     (0 << 4)
-#define EN                      (1 << 3)
-#define DIS                     (0 << 3)
+#define SLEW_FAST               (0 << 6)
+#define SLEW_SLOW               (1 << 6)
+#define INPUT_EN                (1 << 5)
+#define INPUT_DIS               (0 << 5)
+#define PULLUP                  (1 << 4)
+#define PULLDOWN                (0 << 4)
+#define PULLUPDOWN_EN           (0 << 3)
+#define PULLUPDOWN_DIS          (1 << 3)
 
 #define M0                      0
 #define M1                      1
@@ -102,6 +118,19 @@
 #define M5                      5
 #define M6                      6
 #define M7                      7
+
+// GPIO pin pad configuration registers offsets
+#define GPMC_CONF_ADDR_START    0x44E10000
+#define GPMC_CONF_ADDR_END      0x44E11FFF
+#define GPMC_CONF_ADDR_SIZE     (GPMC_CONF_ADDR_END - GPMC_CONF_ADDR_START)
+#define CONF_GPMC_AD0           0x800 // GPIO1_0
+#define CONF_GPMC_AD1           0x804 // GPIO1_1
+#define CONF_GPMC_AD2           0x808 // GPIO1_2
+#define CONF_GPMC_AD3           0x80C // GPIO1_3
+#define CONF_GPMC_AD4           0x810 // GPIO1_4
+#define CONF_GPMC_AD5           0x814 // GPIO1_5
+#define CONF_GPMC_AD6           0x818 // GPIO1_6
+#define CONF_GPMC_AD7           0x81C // GPIO1_7
 
 #define GPIO_0					(1<<0)
 #define GPIO_1					(1<<1)

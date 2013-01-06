@@ -172,8 +172,8 @@ static int __init rtdm_gpio_pwm_engine_init( void )
     for(i=0; i < num_of_chs; i++)
     {
         gpe_chs[i].channel = i;
-        gpe_chs[i].pwmMinWidth = 950;
-        gpe_chs[i].pwmMaxWidth = 2050;
+        gpe_chs[i].pwmMinWidth = 0;
+        gpe_chs[i].pwmMaxWidth = SWITCHING_FREQ;
     }
 
     res = init_pwm(gpe_chs, sizeof(gpe_chs) / sizeof(gpe_chs[0]) );
@@ -183,10 +183,6 @@ static int __init rtdm_gpio_pwm_engine_init( void )
     }
     else
     {
-        /*for(i=0; i<num_of_chs; i++)
-        {
-            setpwmwidth(i, 50);
-        }*/
         rtdm_printk("GPE: GPIO PWM Engine Initialized.\n");
     }
 
