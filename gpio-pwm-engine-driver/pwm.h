@@ -7,6 +7,9 @@ typedef unsigned char uchar;
 typedef unsigned int  uint;
 typedef unsigned long ulong;
 
+/*
+ * Type definition describing the GPE channels
+ */
 typedef struct gpe_ch_desc
 {
     uint channel;
@@ -15,7 +18,7 @@ typedef struct gpe_ch_desc
 } gpe_ch_desc_t;
 
 /*
- * Efficient divide routine using
+ * Efficient divide routine using bitwise operations and shifts
  */
 uint64_t div(uint64_t numerator, uint64_t denominator);
 
@@ -47,11 +50,7 @@ void pulse_low(rtdm_timer_t *timer);
  * @param channel - The GPE channel to set the width of.
  *
  * @param percentage - The pulse width specified in percents of the
- * maximal allowed width. Should be in range between 0 and 100. The
- * actual width which will be set is implementation specific and may
- * vary depending on devices to be controlled. Current implementation
- * will set the width in range between 600 and 2000 usec which is the
- * typical range for model servos such as for example Futaba servos.
+ * maximal allowed width. Should be in range between 0 and 100.
  */
 void set_pwm_width(int channel, int percentage);
 
