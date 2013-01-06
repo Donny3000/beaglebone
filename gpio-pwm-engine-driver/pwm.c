@@ -9,6 +9,8 @@
 #include "gpio.h"
 #include "pwm.h"
 
+#define CALC_PULSE_WIDTH(min, max, percentage) (min + div((max - min) * percentage, 100))
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Donald R. Poole, Jr. <donny3000@gmail.com>");
 MODULE_DESCRIPTION("Generates PWMs with GPIO");
@@ -75,12 +77,6 @@ uint64_t div(uint64_t numerator, uint64_t denominator)
     return q;
 }
 
-int div100(long long dividend)
-{
-    long long divisor = 0x28f5c29;
-    return ((divisor * dividend) >> 32) & 0xffffffff;
-}
-
 void pulse_high(rtdm_timer_t *timer)
 {
     int retval;
@@ -121,13 +117,13 @@ void pulse_low(rtdm_timer_t *timer)
     iowrite32(channel_to_gpio[channel], gpio_cleardataout_reg);
 }
 
-void setpwmwidth(int channel, int percentage)
+void set_pwm_width(int channel, int percentage)
 {
     up_periods[channel] = CALC_PULSE_WIDTH(channel_ranges[channel][0], channel_ranges[channel][1], percentage);
     configured[channel] = 0;
 }
 
-nanosecs_rel_t getpwmwidth(int channel)
+nanosecs_rel_t get_pwm_width(int channel)
 {
     return up_periods[channel];
 }

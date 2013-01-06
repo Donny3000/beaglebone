@@ -65,7 +65,7 @@ static ssize_t pwm_rtdm_read_nrt(struct rtdm_dev_context *context,
     size_t size;
     char uptime[32];
 
-    size = sprintf(uptime, "%u", div100(getpwmwidth(0)));
+    size = sprintf(uptime, "%llu ns", get_pwm_width(0));
     if(rtdm_safe_copy_to_user(user_info, buf, uptime, size))
     {
         rtdm_printk("GPE: ERROR: can't copy data from GPE driver\n");
@@ -85,7 +85,7 @@ static ssize_t pwm_rtdm_write_nrt(struct rtdm_dev_context *context,
            const void *buf, size_t nbyte)
 {
     int duty_perc = simple_strtoul(buf, NULL, 0);
-    setpwmwidth(0, duty_perc);
+    set_pwm_width(0, duty_perc);
     
     return nbyte;
 }

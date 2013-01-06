@@ -1,7 +1,6 @@
 #ifndef __PWM_TASK_PROC_H
 #define __PWM_TASK_PROC_H
 
-#define CALC_PULSE_WIDTH(min, max, percentage) (min + div((max - min) * percentage, 100))
 #define SWITCHING_FREQ  1000000
 
 typedef unsigned char uchar;
@@ -16,10 +15,9 @@ typedef struct gpe_ch_desc
 } gpe_ch_desc_t;
 
 /*
- * Efficiently divides by 100 using
- * multiplication and shift only
+ * Efficient divide routine using
  */
-int div100(long long dividend);
+uint64_t div(uint64_t numerator, uint64_t denominator);
 
 /*
  * Initialize the GPE
@@ -55,7 +53,7 @@ void pulse_low(rtdm_timer_t *timer);
  * will set the width in range between 600 and 2000 usec which is the
  * typical range for model servos such as for example Futaba servos.
  */
-void setpwmwidth(int channel, int percentage);
+void set_pwm_width(int channel, int percentage);
 
 /*
  * Return the current PWM width in percents of the maximum width.
@@ -64,7 +62,7 @@ void setpwmwidth(int channel, int percentage);
  *
  * @return PWM width withing 0 to 100 range
  */
-nanosecs_rel_t getpwmwidth(int channel);
+nanosecs_rel_t get_pwm_width(int channel);
 
 /**
  * Release acquired resources and stops real-time threads started for
