@@ -5,10 +5,12 @@
  *      Author: Donald R. Poole, Jr.
  */
 #include <linux/module.h>
+#include <linux/gpio.h>
 #include <rtdm/rtdm_driver.h>
 #include "gpio.h"
 #include "pwm.h"
 
+#define GPIO_PIN_NUM(bank, pin) (32 * bank + pin)
 #define CALC_PULSE_WIDTH(min, max, percentage) (min + div((max - min) * percentage, 100))
 
 MODULE_LICENSE("GPL");
@@ -18,15 +20,36 @@ MODULE_DESCRIPTION("Generates PWMs with GPIO");
 /*
  * Begin private variables
  */
-static void __iomem     *pwm_bank = NULL;               // Base address of the GPIO bank
-static volatile uint	*gpio_oe_reg = NULL;            // GPIO register to enable a pin of input/ouput
-static volatile uint	*gpio_setdataout_reg = NULL;    // GPIO register to bring a pin high
-static volatile uint	*gpio_cleardataout_reg = NULL;  // GPIO register to bring a pin low
-static uchar            num_of_gpe_chs;                 // The number of GPE channels to initialize
-static rtdm_timer_t     up_timers[8];                   // The timer descriptor for up (high) timer
-static rtdm_timer_t     down_timers[8];                 // The timer descriptors for the down (low) timers. Up to 8
-static nanosecs_rel_t   up_periods[8];                  // The timer durations for the up (high) periods
-static uchar            configured[8];                  // Boolean container to hold confiugration state of GPE channel
+static void __iomem     *pwm_bank = NULL;                       // Base address of the GPIO bank
+static volatile uint	*gpio_oe_reg = NULL;                    // GPIO register to enable a pin of input/ouput
+static volatile uint	*gpio_setdataout_reg = NULL;            // GPIO register to bring a pin high
+static volatile uint	*gpio_cleardataout_reg = NULL;          // GPIO register to bring a pin low
+static u8               num_of_gpe_chs;                            // The number of GPE channels to initialize
+
+static struct           gpio gpe_output_chs[8] = {              // GPE Output channel description structure
+    {GPIO_PIN_NUM(1, 0), GPIOF_OUT_INIT_LOW, "GPE_Output_1"},
+    {GPIO_PIN_NUM(1, 1), GPIOF_OUT_INIT_LOW, "GPE_Output_2"},
+    {GPIO_PIN_NUM(1, 2), GPIOF_OUT_INIT_LOW, "GPE_Output_3"},
+    {GPIO_PIN_NUM(1, 3), GPIOF_OUT_INIT_LOW, "GPE_Output_4"},
+    {GPIO_PIN_NUM(1, 4), GPIOF_OUT_INIT_LOW, "GPE_Output_5"},
+    {GPIO_PIN_NUM(1, 5), GPIOF_OUT_INIT_LOW, "GPE_Output_6"},
+    {GPIO_PIN_NUM(1, 6), GPIOF_OUT_INIT_LOW, "GPE_Output_7"},
+    {GPIO_PIN_NUM(1, 7), GPIOF_OUT_INIT_LOW, "GPE_Output_8"}
+};
+static uint             gpio_requested[8];                      // Store the success/failure of requesting the gpio. If failed, don't try to free it.
+
+static struct           gpio gpe_receiver_chs[4] = {            // GPE channels for receiving the PWM signals from the RC receiver
+    {GPIO_PIN_NUM(0, 26), GPIOF_OUT_INIT_LOW, "GPE_Throttle"},
+    {GPIO_PIN_NUM(0, 27), GPIOF_OUT_INIT_LOW, "GPE_Roll"},
+    {GPIO_PIN_NUM(1, 8), GPIOF_OUT_INIT_LOW, "GPE_Pitch"},
+    {GPIO_PIN_NUM(1, 9), GPIOF_OUT_INIT_LOW, "GPE_Yaw"}
+};
+
+static rtdm_timer_t     up_timers[8];                           // The timer descriptor for up (high) timer
+static rtdm_timer_t     down_timers[8];                         // The timer descriptors for the down (low) timers. Up to 8
+static nanosecs_rel_t   up_periods[8];                          // The timer durations for the up (high) periods
+static u8               configured[8];                          // Boolean container to hold confiugration state of GPE channel
+static rtdm_irq_t       receiver_irqs[4];                       // IRQ descriptors for the PWMs coming from the receiver (Throttle, roll, pitch & yaw)
 
 // Initialized with default pulse ranges
 static int channel_ranges[8][2] = {
@@ -75,6 +98,26 @@ uint64_t div(uint64_t numerator, uint64_t denominator)
     }
 
     return q;
+}
+
+int irq_handler_throttle(rtdm_irq_t *irq_handle)
+{
+    return 0;
+}
+
+int irq_handler_yaw(rtdm_irq_t *irq_handle)
+{
+    return 0;
+}
+
+int irq_handler_pitch(rtdm_irq_t *irq_handle)
+{
+    return 0;
+}
+
+int irq_handler_roll(rtdm_irq_t *irq_handle)
+{
+    return 0;
 }
 
 void pulse_high(rtdm_timer_t *timer)
@@ -133,7 +176,6 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
     void __iomem *mem;
 	int retval, i;
     uint regVal;
-    uchar pinconf;
 
     // Set the global number of channels
     num_of_gpe_chs = num_gpe_ch;
@@ -143,9 +185,6 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
         channel_ranges[ channels[i].channel ][0] = channels[i].pwmMinWidth;
         channel_ranges[ channels[i].channel ][1] = channels[i].pwmMaxWidth;
         up_periods[ channels[i].channel ] = CALC_PULSE_WIDTH(channel_ranges[i][0], channel_ranges[i][1], 50);
-rtdm_printk("GPE: Min Width: %i\n", channels[i].pwmMinWidth);
-rtdm_printk("GPE: Max Width: %i\n", channels[i].pwmMaxWidth);
-rtdm_printk("GPE: Channel %i up period: %llu\n", channels[i].channel, up_periods[ channels[i].channel ]);
         configured[i] = 1;
     }
     rtdm_printk("GPE: Initialized %i PWM pulse lengths.\n", i);
@@ -160,17 +199,28 @@ rtdm_printk("GPE: Channel %i up period: %llu\n", channels[i].channel, up_periods
     }
 
     // Configure GPIO1 pins 0-7 for output
-    pinconf = (SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_EN | M7);
-    iowrite8(pinconf, mem + CONF_GPMC_AD0);
-    iowrite8(pinconf, mem + CONF_GPMC_AD1);
-    iowrite8(pinconf, mem + CONF_GPMC_AD2);
-    iowrite8(pinconf, mem + CONF_GPMC_AD3);
-    iowrite8(pinconf, mem + CONF_GPMC_AD4);
-    iowrite8(pinconf, mem + CONF_GPMC_AD5);
-    iowrite8(pinconf, mem + CONF_GPMC_AD6);
-    iowrite8(pinconf, mem + CONF_GPMC_AD7);
+    // Write the pin configuration to the 8 output channels ()
+    for(i=CONF_GPMC_AD0; i<=CONF_GPMC_AD7; i+=4)
+    {
+        iowrite8((SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_DIS | M7), mem + i);
+    }
     // close the pin conf address space
     iounmap( mem );
+
+    // Request to GPIO pins from the system for use.
+    for(i=0; i < num_of_gpe_chs; i++)
+    {
+        retval = gpio_request_one(gpe_output_chs[i].gpio, gpe_output_chs[i].flags, gpe_output_chs[i].label);
+        if( 0 != retval )
+        {
+            gpio_requested[i] = 0;
+            rtdm_printk("GPE: Error: Failed to request GPIO pin#%i (error %i)\n", i, retval);
+        }
+        else
+        {
+            gpio_requested[i] = 1;
+        }
+    }
     rtdm_printk("GPE: Configuration of GPIO pins complete\n");
 
 	rtdm_printk("GPE: Memory mapping GPIO Bank 1 for PWMs...\n");
@@ -181,6 +231,12 @@ rtdm_printk("GPE: Channel %i up period: %llu\n", channels[i].channel, up_periods
 		rtdm_printk("GPE: ERROR: GPIO memory mapping failed.\n");
 		return 0;
     }
+
+    /****************************************************************
+     * Note: The OMAP4_x macros are the GPIO configuration register *
+     * offsets for the OMAP4x processors, in addition to the AM33xx *
+     * processors.                                                  *
+     ****************************************************************/
 
 	// Set GPIO register address
 	gpio_oe_reg = pwm_bank + GPIO_OE;
@@ -239,6 +295,11 @@ rtdm_printk("GPE: Channel %i up period: %llu\n", channels[i].channel, up_periods
     return 0;
 }
 
+int init_irq_handlers()
+{
+    return 0;
+}
+
 void cleanup_pwm()
 {
 	int i;
@@ -248,6 +309,13 @@ void cleanup_pwm()
         rtdm_timer_destroy( &up_timers[i] );
 		rtdm_timer_destroy( &down_timers[i] );
         rtdm_printk("GPE: Shutdown GPE channel %i\n", i);
+    }
+
+    // Release the Output GPIOs
+    for(i=0; i < num_of_gpe_chs; i++)
+    {
+        if( gpio_requested[i] )
+            gpio_free( gpe_output_chs[i].gpio );
     }
 
     iounmap( pwm_bank );

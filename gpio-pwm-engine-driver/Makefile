@@ -9,7 +9,7 @@ ifneq ($(KERNELRELEASE),)
 # line; invoke the kernel build system.
 else
 
-KDIR    ?= /home/donny3000/workspace/beaglebone-orig/linux-beaglebone/kernel
+KDIR    ?= /home/donny3000/workspace/beaglebone/linux-beaglebone/kernel
 PWD     := $(shell pwd)
 ARCH    := arm
 CROSS   := arm-none-linux-gnueabi-

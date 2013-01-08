@@ -33,6 +33,13 @@ uint64_t div(uint64_t numerator, uint64_t denominator);
 int init_pwm(gpe_ch_desc_t *channels, uchar nchannels);
 
 /*
+ * Initialize the IRQ channels and IRQ handlers
+ *
+ * @returns 0 on success or error code in case of failure.
+ */
+int init_irq_handlers(void);
+
+/*
  * 'On Time' timer for PWM generation
  * *timer - The handle as returned by rtdm_timer_init().
  */
@@ -63,10 +70,46 @@ void set_pwm_width(int channel, int percentage);
  */
 nanosecs_rel_t get_pwm_width(int channel);
 
-/**
+/*
  * Release acquired resources and stops real-time threads started for
  * PWM generation.
  */
 void cleanup_pwm(void);
+
+/*
+ * Interrupt handler for the Throttle control
+ * 
+ * @param irq_handle - The IRW handle as return by rtdm_irq_request()
+ *
+ * @return 0 or a combination of RTDM_RQ_XXX
+ */
+int irq_handler_throttle(rtdm_irq_t *irq_handle);
+
+/*
+ * Interrupt handler for the Yaw control
+ * 
+ * @param irq_handle - The IRW handle as return by rtdm_irq_request()
+ *
+ * @return 0 or a combination of RTDM_RQ_XXX
+ */
+int irq_handler_yaw(rtdm_irq_t *irq_handle);
+
+/*
+ * Interrupt handler for the Pitch control
+ * 
+ * @param irq_handle - The IRW handle as return by rtdm_irq_request()
+ *
+ * @return 0 or a combination of RTDM_RQ_XXX
+ */
+int irq_handler_pitch(rtdm_irq_t *irq_handle);
+
+/*
+ * Interrupt handler for the Roll control
+ * 
+ * @param irq_handle - The IRW handle as return by rtdm_irq_request()
+ *
+ * @return 0 or a combination of RTDM_RQ_XXX
+ */
+int irq_handler_roll(rtdm_irq_t *irq_handle);
 
 #endif
