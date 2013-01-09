@@ -2,7 +2,9 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <rtdm/rtdm_driver.h>
-#include "pwm.h"
+#include "gpe-irq.h"
+#include "gpe-pwm.h"
+#include "gpe-types.h"
 
 #define DEVICE_NAME     "gpe"
 #define SOME_SUB_CLASS  4711
@@ -66,10 +68,10 @@ static ssize_t pwm_rtdm_read_nrt(struct rtdm_dev_context *context,
     char uptime[32];
 
     size = sprintf(uptime, "%llu", get_pwm_width(0));
-    rtdm_printk("GPE Driver: Sending Pulse Width of %s ns\n", uptime);
+    rtdm_printk("GPE-DRVR: Sending Pulse Width of %s ns\n", uptime);
     if(rtdm_safe_copy_to_user(user_info, buf, uptime, size))
     {
-        rtdm_printk("GPE: ERROR: can't copy data from GPE driver\n");
+        rtdm_printk("GPE-DRVR: ERROR: can't copy data from GPE driver\n");
     }
 
     return size;
@@ -87,8 +89,8 @@ static ssize_t pwm_rtdm_write_nrt(struct rtdm_dev_context *context,
 {
     int i;
     int duty_perc = simple_strtoul(buf, NULL, 0);
-    rtdm_printk("GPE Driver: Received Pulse Width of %i%%\n", duty_perc);
-    for(i=0; i<num_of_chs; i++)
+    rtdm_printk("GPE-DRVR: Received Pulse Width of %i%%\n", duty_perc);
+    for(i = 0; i < num_of_chs; i++)
         set_pwm_width(i, duty_perc);
     
     return nbyte;
@@ -135,45 +137,56 @@ static int __init rtdm_gpio_pwm_engine_init( void )
 
     if(num_of_chs < 1 || num_of_chs > 8)
     {
-        rtdm_printk("GEP: ERROR: Received an invalid number of channels. Valid values are 1-8.\n");
+        rtdm_printk("GPE-DRVR: ERROR: Received an invalid number of channels. Valid values are 1-8.\n");
         return -EINVAL;
     }
 
     res = rtdm_dev_register( &gpe_device );
     if(res == 0)
     {
-        rtdm_printk("GPE: PWM driver registered without errors.\n");
+        rtdm_printk("GPE-DRVR: PWM driver registered without errors.\n");
     }
     else
     {
-        rtdm_printk("GPE: ERROR: PWM driver registration failed.\n");
+        rtdm_printk("GPE-DRVR: ERROR: PWM driver registration failed.\n");
         switch( res )
         {
             case -EINVAL:
-                rtdm_printk("GPE: ERROR: The device structure contains invalid entries. " \
+                rtdm_printk("GPE-DRVR: ERROR: The device structure contains invalid entries. " \
                     "Check kernel log for further details.\n");
                 break;
 
             case -ENOMEM:
-                rtdm_printk("GPE: ERROR: The context for an exclusive device cannot be allocated.\n");
+                rtdm_printk("GPE-DRVR: ERROR: The context for an exclusive device cannot be allocated.\n");
                 break;
 
             case -EEXIST:
-                rtdm_printk("GPE: ERROR: The specified device name of protocol ID is already in use.\n");
+                rtdm_printk("GPE-DRVR: ERROR: The specified device name of protocol ID is already in use.\n");
                 break;
 
             case -EAGAIN:
-                rtdm_printk("GPE: ERROR: Some /proc entry cannot be created.\n");
+                rtdm_printk("GPE-DRVR: ERROR: Some /proc entry cannot be created.\n");
                 break;
 
             default:
-                rtdm_printk("GPE: ERROR: Unknown error code returned.\n");
+                rtdm_printk("GPE-DRVR: ERROR: Unknown error code returned.\n");
                 break;
         }
     }
 
+    // Initialize the IRQ channels
+    res = init_irq();
+    if( res )
+    {
+        rtdm_printk("GPE-DRVR: ERROR: IRQ Initialization error occurred: %i\n", res);
+    }
+    else
+    {
+        rtdm_printk("GPE-DRVR: IRQ Initialization complete\n");
+    }
+
     // Initialize channel parameters
-    for(i=0; i < num_of_chs; i++)
+    for(i = 0; i < num_of_chs; i++)
     {
         gpe_chs[i].channel = i;
         gpe_chs[i].pwmMinWidth = 0;
@@ -183,11 +196,11 @@ static int __init rtdm_gpio_pwm_engine_init( void )
     res = init_pwm(gpe_chs, sizeof(gpe_chs) / sizeof(gpe_chs[0]) );
     if( res )
     {
-        rtdm_printk("GPE: ERROR: Initialization error: %i was returned.\n", res);
+        rtdm_printk("GPE-DRVR: ERROR: Initialization error occurred: %i\n", res);
     }
     else
     {
-        rtdm_printk("GPE: GPIO PWM Engine Initialized.\n");
+        rtdm_printk("GPE-DRVR: GPIO PWM Engine Initialization complete\n");
     }
 
     return res;
@@ -201,10 +214,11 @@ static int __init rtdm_gpio_pwm_engine_init( void )
  */
 static void __exit rtdm_gpio_pwm_engine_exit( void )
 {
-    rtdm_printk("GPE: Shutting down PWMs channels...\n");
+    rtdm_printk("GPE-DRVR: Preparing for shutdown...\n");
+    cleanup_irq();
     cleanup_pwm();
     rtdm_dev_unregister(&gpe_device, 1000);
-    rtdm_printk("GPE: All channels shutdown.\n");
+    rtdm_printk("GPE-DRVR: Shutdown complete.\n");
 }
 
 module_init( rtdm_gpio_pwm_engine_init );

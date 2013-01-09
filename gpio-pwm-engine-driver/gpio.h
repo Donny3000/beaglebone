@@ -132,6 +132,15 @@
 #define CONF_GPMC_AD6           0x818 // GPIO1_6
 #define CONF_GPMC_AD7           0x81C // GPIO1_7
 
+#define CONF_LCD_DATA0          0x8A0 // GPIO2_6
+#define CONF_LCD_DATA1          0x8A4 // GPIO2_7
+#define CONF_LCD_DATA2          0x8A8 // GPIO2_8
+#define CONF_LCD_DATA3          0x8AC // GPIO2_9
+#define CONF_LCD_DATA4          0x8B0 // GPIO2_10
+#define CONF_LCD_DATA5          0x8B4 // GPIO2_11
+#define CONF_LCD_DATA6          0x8B8 // GPIO2_12
+#define CONF_LCD_DATA7          0x8BC // GPIO2_13
+
 #define GPIO_0					(1<<0)
 #define GPIO_1					(1<<1)
 #define GPIO_2					(1<<2)
