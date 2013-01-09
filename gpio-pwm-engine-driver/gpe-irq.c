@@ -27,11 +27,11 @@ int init_irq()
     uint regval;
     
     // Configure the pin for GPIO input
-    rtdm_printk("GPE: Configuring GPIO pin as follows: SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_EN | MODE_7....\n");
+    rtdm_printk("GPE-IRQ: Configuring IRQ GPIO pin as follows: SLEW_FAST | INPUT_EN | PULLDOWN | PULLUPDOWN_EN | MODE_7....\n");
     mem = ioremap(GPMC_CONF_ADDR_START, GPMC_CONF_ADDR_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE: ERROR: Failed to remap memory for pin configuration.\n");
+        rtdm_printk("GPE-IRQ: ERROR: Failed to remap memory for IRQ pin configuration.\n");
         return 0;
     }
 

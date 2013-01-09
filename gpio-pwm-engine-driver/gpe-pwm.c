@@ -107,7 +107,7 @@ void pulse_high(rtdm_timer_t *timer)
         retval = rtdm_timer_start(&down_timers[channel], up_periods[channel], SWITCHING_FREQ, RTDM_TIMERMODE_RELATIVE);
         if( retval )
         {
-            rtdm_printk("GPE: Error occurred reconfiguring 'Off Time' timer#%i (%i)\n.", channel, retval);
+            rtdm_printk("GPE-PWM: Error occurred reconfiguring 'Off Time' timer#%i (%i)\n.", channel, retval);
         }
     }
 }
@@ -153,14 +153,14 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
         up_periods[ channels[i].channel ] = CALC_PULSE_WIDTH(channel_ranges[i][0], channel_ranges[i][1], 50);
         configured[i] = 1;
     }
-    rtdm_printk("GPE: Initialized %i PWM pulse lengths.\n", i);
+    rtdm_printk("GPE-PWM: Initialized %i PWM pulse lengths.\n", i);
 
     // Configure the pin for GPIO output
-    rtdm_printk("GPE: Configuring GPIO pin as follows: SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_EN | MODE_7....\n");
+    rtdm_printk("GPE-PWM: Configuring GPIO pin as follows: SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_EN | MODE_7....\n");
     mem = ioremap(GPMC_CONF_ADDR_START, GPMC_CONF_ADDR_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE: ERROR: Failed to remap memory for pin configuration.\n");
+        rtdm_printk("GPE-PWM: ERROR: Failed to remap memory for pin configuration.\n");
         return 0;
     }
 
@@ -180,21 +180,21 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
         if( 0 != retval )
         {
             gpio_requested[i] = 0;
-            rtdm_printk("GPE: Error: Failed to request GPIO pin#%i (error %i)\n", i, retval);
+            rtdm_printk("GPE-PWM: Error: Failed to request GPIO pin#%i (error %i)\n", i, retval);
         }
         else
         {
             gpio_requested[i] = 1;
         }
     }
-    rtdm_printk("GPE: Configuration of GPIO pins complete\n");
+    rtdm_printk("GPE-PWM: Configuration of GPIO pins complete\n");
 
-	rtdm_printk("GPE: Memory mapping GPIO Bank 1 for PWMs...\n");
+	rtdm_printk("GPE-PWM: Memory mapping GPIO Bank 1 for PWMs...\n");
 	// Remap GPIO bank 1 address for the GPE channels
     pwm_bank = ioremap(GPIO1_START_ADDR, GPIO1_SIZE);
 	if( !pwm_bank )
     {
-		rtdm_printk("GPE: ERROR: GPIO memory mapping failed.\n");
+		rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping failed.\n");
 		return 0;
     }
 
@@ -218,7 +218,7 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
 	// Set the CLEARDATAOUT register address
 	gpio_cleardataout_reg = pwm_bank + GPIO_CLEARDATAOUT;
 
-	rtdm_printk("GPE: Memory-mapping PMW Bank complete.\n");
+	rtdm_printk("GPE-PWM: Memory-mapping PMW Bank complete.\n");
 
     // Initialize the GPE channel timers
     for(i = 0; i < num_of_gpe_chs; i++)
@@ -226,18 +226,18 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
         retval = rtdm_timer_init(&up_timers[i], &pulse_high, "up_timers");
         if( retval )
         {
-            rtdm_printk("GPE: ERROR: Received error %i while initializing 'On Timer' timer#%i\n", retval, i);
+            rtdm_printk("GPE-PWM: ERROR: Received error %i while initializing 'On Timer' timer#%i\n", retval, i);
             return retval;
         }
-        rtdm_printk("GPE: Successfully initialized 'On Timer' timer#%i\n", i);
+        rtdm_printk("GPE-PWM: Successfully initialized 'On Timer' timer#%i\n", i);
  
 		retval = rtdm_timer_init(&down_timers[i], &pulse_low, "down_timer");
         if( retval )
         {
-            rtdm_printk("GPE: ERROR: Received error %i while initializing 'Off Timer' timer#%i\n", retval, i);
+            rtdm_printk("GPE-PWM: ERROR: Received error %i while initializing 'Off Timer' timer#%i\n", retval, i);
             return retval;
         }
-        rtdm_printk("GPE: Successfully initialized 'Off Timer' timer#%i\n", i);
+        rtdm_printk("GPE-PWM: Successfully initialized 'Off Timer' timer#%i\n", i);
 	}
 
     // Start the 'On Timers'
@@ -246,11 +246,11 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
         retval = rtdm_timer_start(&up_timers[i], SWITCHING_FREQ, SWITCHING_FREQ, RTDM_TIMERMODE_RELATIVE);
         if( retval )
         {
-            rtdm_printk("GPE: Error occurred starting starting 'On Time' timer (%i)\n", retval);
+            rtdm_printk("GPE-PWM: Error occurred starting starting 'On Time' timer (%i)\n", retval);
             return retval;
         }
     }
-    rtdm_printk("GPE: Successfully initialized and started all GPE PWM channel timers.\n");
+    rtdm_printk("GPE-PWM: Successfully initialized and started all GPE PWM channel timers.\n");
 	
     return 0;
 }
@@ -263,7 +263,7 @@ void cleanup_pwm()
     {
         rtdm_timer_destroy( &up_timers[i] );
 		rtdm_timer_destroy( &down_timers[i] );
-        rtdm_printk("GPE: Shutdown GPE channel %i\n", i);
+        rtdm_printk("GPE-PWM: Shutdown GPE channel %i\n", i);
     }
 
     // Release the Output GPIOs
