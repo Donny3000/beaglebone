@@ -11,7 +11,7 @@
 
 #include <rtdm/rtdm_driver.h>
 
-#define GPIO_PIN_NUM(bank, pin) (32 * bank + pin)
+#define GPIO_PIN_NUM(bank, gpio) (32 * (bank) + (gpio))
 #define CALC_PULSE_WIDTH(min, max, percentage) (min + div((max - min) * percentage, 100))
 
 typedef unsigned char uchar;

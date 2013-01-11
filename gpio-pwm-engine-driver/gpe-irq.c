@@ -25,50 +25,8 @@ int init_irq()
     void __iomem *mem;
 	int i, retval, irq;
     uint regval;
-    
-    // Configure the pin for GPIO input
-    rtdm_printk("GPE-IRQ: Configuring IRQ GPIO pin as follows: SLEW_FAST | INPUT_EN | PULLDOWN | PULLUPDOWN_EN | MODE_7....\n");
-    mem = ioremap(GPMC_CONF_ADDR_START, GPMC_CONF_ADDR_SIZE);
-    if( !mem )
-    {
-        rtdm_printk("GPE-IRQ: ERROR: Failed to remap memory for IRQ pin configuration.\n");
-        return 0;
-    }
 
-    // Configure GPIO1 pins 0-7 for output
-    // Write the pin configuration to the 8 output channels ()
-    for(i=CONF_LCD_DATA2; i<=CONF_LCD_DATA5; i+=4)
-    {
-        iowrite8((SLEW_FAST | INPUT_EN | PULLDOWN | PULLUPDOWN_EN | M7), mem + i);
-    }
-    // close the pin conf address space
-    iounmap( mem );
-
-    // GPIO Bank 2: Setup the IRQ registers with the appropriate values
-    mem = ioremap(GPIO2_START_ADDR, GPIO2_SIZE);
-    if( !mem )
-    {
-        rtdm_printk("GPE-IRQ: ERROR: Failed to remap memory for GPIO Bank 2 IRQ pin configuration.\n");
-        return 0;
-    }
-
-    // Enable the IRQ ability for GPIO0_26 & GPIO0_27
-    regval = ioread32(mem + GPIO_IRQSTATUS_0);
-    regval |= (GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11);
-    iowrite32(regval, mem + GPIO_IRQSTATUS_0);
-
-    // Set Pin 26 & 27 for rising- and falling- edge detection
-    regval = ioread32(mem + GPIO_RISINGDETECT);
-    regval |= (GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11);
-    iowrite32(regval, mem + GPIO_RISINGDETECT);
-    regval = ioread32(mem + GPIO_FALLINGDETECT);
-    regval |= (GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11);
-    iowrite32(regval, mem + GPIO_FALLINGDETECT);
-    
-    // Release the mapped memory
-    iounmap( mem );
-
-    // Request the GPE IRQ channels
+    // 1st Step: Request the GPIO lines for the IRQ channels
     for(i = 0; i < num_of_receiver_chs; i++)
     {
         retval = gpio_request_one(irq_chs[i].gpio_desc.gpio, irq_chs[i].gpio_desc.flags, irq_chs[i].gpio_desc.label);
@@ -109,26 +67,158 @@ int init_irq()
         }
     }
 
+    // 2nd Step: Configure the pin for GPIO input
+    rtdm_printk("GPE-IRQ: Configuring IRQ GPIO pin as follows: SLEW_FAST | INPUT_EN | PULLUP | PULLUPDOWN_DIS | MODE_7....\n");
+    mem = ioremap(GPMC_CONF_ADDR_START, GPMC_CONF_ADDR_SIZE);
+    if( !mem )
+    {
+        rtdm_printk("GPE-IRQ: ERROR: Failed to remap memory for IRQ pin configuration.\n");
+        return 0;
+    }
+
+    // Configure GPIO1 pins 0-7 for output
+    // Write the pin configuration to the 8 output channels ()
+    for(i=CONF_LCD_DATA2; i<=CONF_LCD_DATA5; i+=4)
+    {
+        iowrite8((SLEW_FAST | INPUT_EN | PULLUP | PULLUPDOWN_DIS | M7), mem + i);
+    }
+    // close the pin conf address space
+    iounmap( mem );
+
+    // GPIO Bank 2: Setup the IRQ registers with the appropriate values
+    mem = ioremap(GPIO2_START_ADDR, GPIO2_SIZE);
+    if( !mem )
+    {
+        rtdm_printk("GPE-IRQ: ERROR: Failed to remap memory for GPIO Bank 2 IRQ pin configuration.\n");
+        return 0;
+    }
+
+    // Enable the IRQ ability for GPIO0_26 & GPIO0_27
+    regval = ioread32(mem + GPIO_IRQSTATUS_0);
+    regval |= (GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11);
+    iowrite32(regval, mem + GPIO_IRQSTATUS_0);
+    regval = ioread32(mem + GPIO_IRQSTATUS_1);
+    regval |= (GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11);
+    iowrite32(regval, mem + GPIO_IRQSTATUS_1);
+    
+    // Set Pin 26 & 27 for rising- and falling- edge detection
+    regval = ioread32(mem + GPIO_RISINGDETECT);
+    regval |= (GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11);
+    iowrite32(regval, mem + GPIO_RISINGDETECT);
+    regval = ioread32(mem + GPIO_FALLINGDETECT);
+    regval |= (GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11);
+    iowrite32(regval, mem + GPIO_FALLINGDETECT);
+    // Release the mapped memory
+    iounmap( mem );
+
+    // 3rd Step: Setup the IRQ controller to read the H/W interrupts
+    mem = ioremap(INTC_REG_START, INTC_REG_SIZE);
+    if( !mem )
+    {
+        rtdm_printk("GPE-IRQ: ERROR: Failed to remap IRQ Control Registers memory\n");
+        return 0;
+    }
+
+    // Disable clock gating strategy for the. Will use more
+    // power with this strategy disabled, but will decrease
+    // latency.
+    iowrite32(0x0, mem + INTC_SYSCONFIG);
+
+    // Disable the input synchronizer auto-gating and the
+    // functional clock auto-idle modes.  This will use more
+    // power, but will decrease latency.
+    iowrite32(0x1, mem + INTC_IDLE);
+
+    // For each IRQ line, set the highest priorit (0) and
+    // route to the IRQ, not the FIQ (GPIOs cannot be routed
+    // to FIQ)
+    iowrite8(0x0, mem + INTC_ILR72);
+    iowrite8(0x0, mem + INTC_ILR73);
+    iowrite8(0x0, mem + INTC_ILR74);
+    iowrite8(0x0, mem + INTC_ILR75);
+
+    // Unmask the the GPIO lines to enable interrupts on those GPIO lines
+    iowrite32((GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11), mem + INTC_MIR_CLEAR2);
+    
+    // Close the IRQ Control registers memory
+    iounmap( mem );
+    
     return 0;
 }
 
+nanosecs_abs_t throttle_pwm_start, throttle_pwm_width;
+uint throttle_init = 0;
 int irq_handler_throttle(rtdm_irq_t *irq_handle)
 {
+    if( !throttle_init )
+    {
+        throttle_pwm_start = rtdm_clock_read();
+        throttle_init = 1;
+    }
+    else
+    {
+        throttle_pwm_width = rtdm_clock_read() - throttle_pwm_start;
+        rtdm_printk("Throttle Pulse Width: %llu ns\n", throttle_pwm_width);
+        throttle_init = 0;
+    }
+
     return 0;
 }
 
+nanosecs_abs_t yaw_pwm_start, yaw_pwm_width;
+uint yaw_init = 0;
 int irq_handler_yaw(rtdm_irq_t *irq_handle)
 {
+    if( !yaw_init )
+    {
+        yaw_pwm_start = rtdm_clock_read();
+        yaw_init = 1;
+    }
+    else
+    {
+        yaw_pwm_width = rtdm_clock_read() - yaw_pwm_start;
+        rtdm_printk("Yaw Pulse Width: %llu ns\n", yaw_pwm_width);
+        yaw_init = 0;
+    }
+
     return 0;
 }
 
+nanosecs_abs_t pitch_pwm_start, pitch_pwm_width;
+uint pitch_init = 0;
 int irq_handler_pitch(rtdm_irq_t *irq_handle)
 {
+    if( !pitch_init )
+    {
+        pitch_pwm_start = rtdm_clock_read();
+        pitch_init = 1;
+    }
+    else
+    {
+        pitch_pwm_width = rtdm_clock_read() - pitch_pwm_start;
+        rtdm_printk("Pitch Pulse Width: %llu ns\n", pitch_pwm_width);
+        pitch_init = 0;
+    }
+
     return 0;
 }
 
+nanosecs_abs_t roll_pwm_start, roll_pwm_width;
+uint roll_init = 0;
 int irq_handler_roll(rtdm_irq_t *irq_handle)
 {
+    if( !roll_init )
+    {
+        roll_pwm_start = rtdm_clock_read();
+        roll_init = 1;
+    }
+    else
+    {
+        roll_pwm_width = rtdm_clock_read() - roll_pwm_start;
+        rtdm_printk("Roll Pulse Width: %llu ns\n", roll_pwm_width);
+        roll_init = 0;
+    }
+
     return 0;
 }
 

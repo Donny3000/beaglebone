@@ -168,7 +168,7 @@ int init_pwm(gpe_ch_desc_t *channels, uchar num_gpe_ch)
     // Write the pin configuration to the 8 output channels ()
     for(i=CONF_GPMC_AD0; i<=CONF_GPMC_AD7; i+=4)
     {
-        iowrite8((SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_DIS | M7), mem + i);
+        iowrite8((SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_EN | M7), mem + i);
     }
     // close the pin conf address space
     iounmap( mem );
