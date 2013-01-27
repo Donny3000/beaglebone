@@ -61,12 +61,12 @@ int ehrpwm_2_config(void);
 /*
  * Enable the clocks controlling the PWM sub-systems
  *
- * @param addr - The address of the L4 Peripheral clock configuration registers
- * @param size - The size of the address space being mapped.
+ * @param epwmss_clk_mod - The address of the L4 Peripheral clock configuration
+ * registers
  *
  * @return - 0 on success, -1 otherwise.
  */
-int config_l4_clk(ulong addr, uint size);
+int config_l4_clk(ulong epwmss_clk_mod);
 
 /*
  * Configure the PWMSS configuration module

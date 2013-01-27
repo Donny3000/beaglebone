@@ -8,6 +8,9 @@
 #ifndef PWM_H_
 #define PWM_H_
 
+/********************************************/
+/* L4 Peripheral Clock Module Configuration */
+/********************************************/
 #define CM_PER_REG_START        0x44E00000
 #define CM_PER_REG_END          0x44E03FFF
 #define CM_PER_REG_SIZE         (CM_PER_REG_END - CM_PER_REG_START)

@@ -165,7 +165,7 @@ int ehrpwm_0_config(void)
     mem = ioremap(GPIO3_START_ADDR, GPIO3_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping failed.\n");
+        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 1 & 2 failed.\n");
         return -1;
     }
     addr = mem + GPIO_OE;
@@ -179,7 +179,7 @@ int ehrpwm_0_config(void)
     iounmap( mem );
     
     // Enable the L4 peripheral clock for the sub-system first
-    if(-1 == config_l4_clk(CM_PER_REG_START, CM_PER_REG_SIZE))
+    if(-1 == config_l4_clk(CM_PER_EPWMSS0_CLKCTRL))
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: Failed to enable L4 Peripheral clock for PWMSS#0\n");
         return -1;
@@ -243,7 +243,7 @@ int ehrpwm_1_config(void)
     mem = ioremap(GPIO1_START_ADDR, GPIO1_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping failed.\n");
+        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 2 & 4 failed.\n");
         return -1;
     }
     addr = mem + GPIO_OE;
@@ -256,17 +256,20 @@ int ehrpwm_1_config(void)
     iowrite32(regVal, addr);
     iounmap( mem );
     
-    // Enable the Clock first
-    mem = ioremap(CM_PER_REG_START, CM_PER_REG_SIZE);
-    if( !mem )
+    // Enable the L4 peripheral clock for the sub-system first
+    if(-1 == config_l4_clk(CM_PER_EPWMSS1_CLKCTRL))
     {
-        rtdm_printk("GPE-PWM: ERROR: Clock Module memory mapping failed\n");
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to enable L4 Peripheral clock for PWMSS#1\n");
         return -1;
     }
-    // Enable the module and disable idle mode.
-    iowrite32(0x2, mem + CM_PER_EPWMSS1_CLKCTRL);
-    iounmap( mem );
-    
+
+    // Configure the pulse-width modulation sub-system
+    if(-1 == pwmss_config(PWM_SUB_1_CONFIG_START, PWM_SUB_1_CONFIG_SIZE))
+    {
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure PWMSS#1\n");
+        return -1;
+    }
+
     // Go ahead and save the memory-mapped Counter-Compare memory regions for
     // later when we need to change the duty-cyle of the PWM signal.
     cnt_cmp_1 = ioremap(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE);
@@ -274,6 +277,34 @@ int ehrpwm_1_config(void)
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap ePWMSS#1 Counter-Compare register address.\n");
         return -1;
+    }
+
+    // First, we will setup the Time-Based sub-module.  This module sets up the
+    // period/frequency of the PWM and the counter style (Up, Down, Up & Down).
+    if(-1 == ehrpwm_config_tb_module(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE))
+    {
+    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#1 Time-Based sub-module\n");
+    	return -1;
+    }
+    
+    // Now, setup the Counter-Compare sub-module.  This module sets the points
+    // during the period counter where we want events (pin toggles) to occurr.
+    // We only set on place initially, which is the fall-edge of the PWM signal.
+    // Should be (1ms).
+    if(-1 == ehrpwm_config_cc_module(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE))
+    {
+    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#1 Counter-Compare sub-module\n");
+    	return -1;
+    }
+    
+    // Finally, we setup the Action-Qualifier sub-module.  This module
+    // configures the actual events for the two output channels: Output high
+    // when the counter reaches 0 and output low when the counter reaches the
+    // tick count setup in the previous step.
+    if(-1 == ehrpwm_config_aq_module(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE))
+    {
+    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#1 Action-Qualifier sub-module\n");
+    	return -1;
     }
 
     return 0;
@@ -290,7 +321,7 @@ int ehrpwm_2_config(void)
     mem = ioremap(GPIO0_START_ADDR, GPIO0_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping failed.\n");
+        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 5 & 6 failed.\n");
         return -1;
     }
     addr = mem + GPIO_OE;
@@ -306,17 +337,20 @@ int ehrpwm_2_config(void)
 
     rtdm_printk("GPE-PWM: Memory-mapping PMW Bank complete.\n");
     
-    // Enable the Clock first
-    mem = ioremap(CM_PER_REG_START, CM_PER_REG_SIZE);
-    if( !mem )
+    // Enable the L4 peripheral clock for the sub-system first
+    if(-1 == config_l4_clk(CM_PER_EPWMSS2_CLKCTRL))
     {
-        rtdm_printk("GPE-PWM: ERROR: Clock Module memory mapping failed\n");
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to enable L4 Peripheral clock for PWMSS#2\n");
         return -1;
     }
-    // Enable the module and disable idle mode.
-    iowrite32(0x2, mem + CM_PER_EPWMSS2_CLKCTRL);
-    iounmap( mem );
-    
+
+    // Configure the pulse-width modulation sub-system
+    if(-1 == pwmss_config(PWM_SUB_2_CONFIG_START, PWM_SUB_2_CONFIG_SIZE))
+    {
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure PWMSS#2\n");
+        return -1;
+    }
+
     // Go ahead and save the memory-mapped Counter-Compare memory regions for
     // later when we need to change the duty-cyle of the PWM signal.
     cnt_cmp_2 = ioremap(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE);
@@ -326,21 +360,49 @@ int ehrpwm_2_config(void)
         return -1;
     }
 
+    // First, we will setup the Time-Based sub-module.  This module sets up the
+    // period/frequency of the PWM and the counter style (Up, Down, Up & Down).
+    if(-1 == ehrpwm_config_tb_module(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE))
+    {
+    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#2 Time-Based sub-module\n");
+    	return -1;
+    }
+    
+    // Now, setup the Counter-Compare sub-module.  This module sets the points
+    // during the period counter where we want events (pin toggles) to occurr.
+    // We only set on place initially, which is the fall-edge of the PWM signal.
+    // Should be (1ms).
+    if(-1 == ehrpwm_config_cc_module(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE))
+    {
+    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#2 Counter-Compare sub-module\n");
+    	return -1;
+    }
+    
+    // Finally, we setup the Action-Qualifier sub-module.  This module
+    // configures the actual events for the two output channels: Output high
+    // when the counter reaches 0 and output low when the counter reaches the
+    // tick count setup in the previous step.
+    if(-1 == ehrpwm_config_aq_module(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE))
+    {
+    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#2 Action-Qualifier sub-module\n");
+    	return -1;
+    }
+
     return 0;
 }
 
-int config_l4_clk(ulong addr, uint size)
+int config_l4_clk(ulong epwmss_clk_mod)
 {
     volatile void __iomem *mem;
 
-    mem = ioremap(addr, size);
+    mem = ioremap(CM_PER_REG_START, CM_PER_REG_SIZE);
     if( !mem )
     {
         rtdm_printk("GPE-PWM: ERROR: Clock Module memory mapping failed\n");
         return -1;
     }
     // Enable the module and disable idle mode.
-    iowrite32(0x2, mem + CM_PER_EPWMSS0_CLKCTRL);
+    iowrite32(0x2, mem + epwmss_clk_mod);
     iounmap( mem );
 
     return 0;
@@ -386,12 +448,13 @@ int ehrpwm_config_tb_module(ulong addr, uint size)
         rtdm_printk("GPE-PWM: Error: ePWM time-based memory mapping failed\n");
         return -1;
     }
-    // Configure the Time-base Control Register
-    iowrite16(0xB0, mem + EPWM_TBCTL);
-    // Set the period of the time-based counter. The system clock is 32768 Hz
-    // and the period of the pulse width should be 20ms for RC servos. Should be
-    // about 655-656 clk ticks.
-    iowrite16(0x290, mem + EPWM_TBPRD);
+    // Configure the Time-base Control Register and set the PWM clock to
+    // 195.312.5Hz scaled down from the 100MHz system clock.
+    iowrite16(0x1D30, mem + EPWM_TBCTL);
+    // Set the period of the time-based counter. With the clock set to 195.3kHz
+    // and the period of an RC servo pulse width (frame) at 20ms, the number of
+    // clock ticks should be about 3906-3907 clk ticks.
+    iowrite16(0xF42, mem + EPWM_TBPRD);
     // Close the mapped memory region
     iounmap( mem );
     
@@ -411,8 +474,8 @@ int ehrpwm_config_cc_module(ulong addr, uint size)
 	}
 	iowrite8(0x5A, mem + EPWM_CMPCTL);
 	// Set the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	// which equals 32 - 33 ticks, so that's what we will set it to.
-	iowrite16(0x11, mem + EPWM_CMPA);
+	// which equals 195-196 ticks, so that's what we will set it to.
+	iowrite16(0xC3, mem + EPWM_CMPA);
     // Just initialize the CMPB register with 0.  We won't be using it, but we
     // should set a known value anyway.
     iowrite16(0x0, mem + EPWM_CMPB);
