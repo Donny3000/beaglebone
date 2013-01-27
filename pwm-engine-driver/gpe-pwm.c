@@ -103,11 +103,11 @@ int init_pwm(uchar num_gpe_ch)
     /*
      * Begin the GPIO pin configuration
      */
-    rtdm_printk("GPE-PWM: Configuring GPIO pin as follows: SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_EN | MODE_7....\n");
+    printk(KERN_ALERT "GPE-PWM: Configuring GPIO pin as follows: SLEW_FAST | INPUT_DIS | PULLUP | PULLUPDOWN_EN | MODE_7....\n");
     mem = ioremap(GPMC_CONF_ADDR_START, GPMC_CONF_ADDR_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: Failed to remap memory for pin configuration.\n");
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap memory for pin configuration.\n");
         return -1;
     }
 
@@ -126,16 +126,16 @@ int init_pwm(uchar num_gpe_ch)
         if( 0 != retval )
         {
             gpio_requested[i] = 0;
-            rtdm_printk("GPE-PWM: Error: Failed to request ePWM module#%i GPIO pin#%i (error %i)\n", i%2, i, retval);
+            printk(KERN_ALERT "GPE-PWM: Error: Failed to request ePWM module#%i GPIO pin#%i (error %i)\n", i%2, i, retval);
         }
         else
         {
-            rtdm_printk("GPE-PWM: Requesting GPIO#%i from the system for %s\n", gpe_output_chs[i].gpio, gpe_output_chs[i].label);
+            printk(KERN_ALERT "GPE-PWM: Requesting GPIO#%i from the system for %s\n", gpe_output_chs[i].gpio, gpe_output_chs[i].label);
             gpio_requested[i] = 1;
         }
     }
     
-    rtdm_printk("GPE-PWM: Configuration of GPIO pins complete\n");
+    printk(KERN_ALERT "GPE-PWM: Configuration of GPIO pins complete\n");
     
     /*
      * Begin setting the GPIOs to output
@@ -160,12 +160,12 @@ int ehrpwm_0_config(void)
 	volatile uint *addr;
 	uint regVal;
 	
-	rtdm_printk("GPE-PWM: Memory mapping GPIO Bank 3 for ePWM channels 1 & 2\n");
+	printk(KERN_ALERT "GPE-PWM: Memory mapping GPIO Bank 3 for ePWM channels 1 & 2\n");
     // Remap GPIO bank 3 address GPE channels 1 & 2
     mem = ioremap(GPIO3_START_ADDR, GPIO3_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 1 & 2 failed.\n");
+        printk(KERN_ALERT "GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 1 & 2 failed.\n");
         return -1;
     }
     addr = mem + GPIO_OE;
@@ -205,7 +205,7 @@ int ehrpwm_0_config(void)
     // period/frequency of the PWM and the counter style (Up, Down, Up & Down).
     if(-1 == ehrpwm_config_tb_module(PWM_SUB_0_EPWM_START, PWM_SUB_0_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#0 Time-Based sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#0 Time-Based sub-module\n");
     	return -1;
     }
     
@@ -215,7 +215,7 @@ int ehrpwm_0_config(void)
     // Should be (1ms).
     if(-1 == ehrpwm_config_cc_module(PWM_SUB_0_EPWM_START, PWM_SUB_0_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#0 Counter-Compare sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#0 Counter-Compare sub-module\n");
     	return -1;
     }
     
@@ -225,7 +225,7 @@ int ehrpwm_0_config(void)
     // tick count setup in the previous step.
     if(-1 == ehrpwm_config_aq_module(PWM_SUB_0_EPWM_START, PWM_SUB_0_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#0 Action-Qualifier sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#0 Action-Qualifier sub-module\n");
     	return -1;
     }
     
@@ -238,12 +238,12 @@ int ehrpwm_1_config(void)
 	volatile uint *addr;
 	uint regVal;
 	
-	rtdm_printk("GPE-PWM: Memory mapping GPIO Bank 1 for ePWM channels 2 & 4\n");
+	printk(KERN_ALERT "GPE-PWM: Memory mapping GPIO Bank 1 for ePWM channels 2 & 4\n");
     // Remap GPIO bank 1 address GPE channels 1 & 2
     mem = ioremap(GPIO1_START_ADDR, GPIO1_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 2 & 4 failed.\n");
+        printk(KERN_ALERT "GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 2 & 4 failed.\n");
         return -1;
     }
     addr = mem + GPIO_OE;
@@ -283,7 +283,7 @@ int ehrpwm_1_config(void)
     // period/frequency of the PWM and the counter style (Up, Down, Up & Down).
     if(-1 == ehrpwm_config_tb_module(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#1 Time-Based sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#1 Time-Based sub-module\n");
     	return -1;
     }
     
@@ -293,7 +293,7 @@ int ehrpwm_1_config(void)
     // Should be (1ms).
     if(-1 == ehrpwm_config_cc_module(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#1 Counter-Compare sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#1 Counter-Compare sub-module\n");
     	return -1;
     }
     
@@ -303,7 +303,7 @@ int ehrpwm_1_config(void)
     // tick count setup in the previous step.
     if(-1 == ehrpwm_config_aq_module(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#1 Action-Qualifier sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#1 Action-Qualifier sub-module\n");
     	return -1;
     }
 
@@ -316,12 +316,12 @@ int ehrpwm_2_config(void)
 	volatile uint *addr;
 	uint regVal;
 	
-	rtdm_printk("GPE-PWM: Memory mapping GPIO Bank 1 for ePWM channels 5 & 6\n");
+	printk(KERN_ALERT "GPE-PWM: Memory mapping GPIO Bank 1 for ePWM channels 5 & 6\n");
 	// Remap GPIO bank 0 address for the GPE channels
     mem = ioremap(GPIO0_START_ADDR, GPIO0_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 5 & 6 failed.\n");
+        printk(KERN_ALERT "GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 5 & 6 failed.\n");
         return -1;
     }
     addr = mem + GPIO_OE;
@@ -335,7 +335,7 @@ int ehrpwm_2_config(void)
     iowrite32(regVal, addr);
     iounmap( mem );
 
-    rtdm_printk("GPE-PWM: Memory-mapping PMW Bank complete.\n");
+    printk(KERN_ALERT "GPE-PWM: Memory-mapping PMW Bank complete.\n");
     
     // Enable the L4 peripheral clock for the sub-system first
     if(-1 == config_l4_clk(CM_PER_EPWMSS2_CLKCTRL))
@@ -364,7 +364,7 @@ int ehrpwm_2_config(void)
     // period/frequency of the PWM and the counter style (Up, Down, Up & Down).
     if(-1 == ehrpwm_config_tb_module(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#2 Time-Based sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#2 Time-Based sub-module\n");
     	return -1;
     }
     
@@ -374,7 +374,7 @@ int ehrpwm_2_config(void)
     // Should be (1ms).
     if(-1 == ehrpwm_config_cc_module(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#2 Counter-Compare sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#2 Counter-Compare sub-module\n");
     	return -1;
     }
     
@@ -384,7 +384,7 @@ int ehrpwm_2_config(void)
     // tick count setup in the previous step.
     if(-1 == ehrpwm_config_aq_module(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE))
     {
-    	rtdm_printk("GPE-PWM: ERROR: Failed to configure ePWMSS#2 Action-Qualifier sub-module\n");
+    	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#2 Action-Qualifier sub-module\n");
     	return -1;
     }
 
@@ -398,7 +398,7 @@ int config_l4_clk(ulong epwmss_clk_mod)
     mem = ioremap(CM_PER_REG_START, CM_PER_REG_SIZE);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: ERROR: Clock Module memory mapping failed\n");
+        printk(KERN_ALERT "GPE-PWM: ERROR: Clock Module memory mapping failed\n");
         return -1;
     }
     // Enable the module and disable idle mode.
@@ -445,7 +445,7 @@ int ehrpwm_config_tb_module(ulong addr, uint size)
     mem = ioremap(addr, size);
     if( !mem )
     {
-        rtdm_printk("GPE-PWM: Error: ePWM time-based memory mapping failed\n");
+        printk(KERN_ALERT "GPE-PWM: Error: ePWM time-based memory mapping failed\n");
         return -1;
     }
     // Configure the Time-base Control Register and set the PWM clock to
@@ -469,7 +469,7 @@ int ehrpwm_config_cc_module(ulong addr, uint size)
     mem = ioremap(addr, size);
 	if( !mem )
 	{
-		rtdm_printk("GPE-PWM: ERROR: ePWM counter-compare memory mapping failed\n");
+		printk(KERN_ALERT "GPE-PWM: ERROR: ePWM counter-compare memory mapping failed\n");
 		return -1;
 	}
 	iowrite8(0x5A, mem + EPWM_CMPCTL);
@@ -493,7 +493,7 @@ int ehrpwm_config_aq_module(ulong addr, uint size)
     mem = ioremap(addr, size);
 	if( !mem )
 	{
-		rtdm_printk("GPE-PWM: ERROR: ePWM action-qualifier memory mapping failed\n");
+		printk(KERN_ALERT "GPE-PWM: ERROR: ePWM action-qualifier memory mapping failed\n");
 		return -1;
 	}
 	/*
@@ -543,7 +543,7 @@ void cleanup_pwm()
     {
         if( gpio_requested[i] )
         {
-            rtdm_printk("GPE-PWM: Shutdown GPE channel %i\n", i);
+            printk(KERN_ALERT "GPE-PWM: Shutdown GPE channel %i\n", i);
             gpio_free( gpe_output_chs[i].gpio );
         }
     }

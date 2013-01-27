@@ -7,7 +7,6 @@
 #include <linux/pwm/pwm.h>
 #include <linux/pwm/ehrpwm.h>
 #include <linux/platform_device.h>
-#include <rtdm/rtdm_driver.h>
 
 #include <plat/clock.h>
 
