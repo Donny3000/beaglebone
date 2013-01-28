@@ -12,8 +12,10 @@
 
 #include "gpe-types.h"
 
-#define SWITCHING_FREQ  1000000
-#define CALC_PULSE_WIDTH(min, max, percentage) (min + div((max - min) * percentage, 100))
+#define PWM_MIN_TICK_COUNT 0xC3
+#define PWM_MAX_TICK_COUNT 0x186
+#define PWM_PRD_TICK_COUNT 0xF42
+#define PWM_NS_PER_STEP    5120
 
 /*
  * Efficient divide routine using bitwise operations and shifts
@@ -111,12 +113,12 @@ int ehrpwm_config_aq_module(ulong addr, uint size);
  * Set the width of the pulse for the specified GPE channel.
  *
  * @param channel - The GPE channel to set the width of.
- * @param percentage - The pulse width specified in percents of the
- * maximal allowed width. Should be in range between 0 and 100.
+ * @param ticks - The number of ticks to set the pulse width to.  The range is
+ * 0-196.  Where 0 is 1ms and 196 is 2ms.
  *
  * @returns - None
  */
-void set_pwm_width(int channel, int percentage);
+void set_pwm_width(uint channel, ushort ticks);
 
 /*
  * Return the current PWM width in percents of the maximum width.
@@ -125,7 +127,7 @@ void set_pwm_width(int channel, int percentage);
  *
  * @return PWM width withing 0 to 100 range
  */
-nanosecs_rel_t get_pwm_width(int channel);
+nanosecs_rel_t get_pwm_width(uint channel);
 
 /*
  * Release acquired PWM GPIO lines and stops real-time threads started.

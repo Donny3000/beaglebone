@@ -68,10 +68,10 @@ static ssize_t pwm_rtdm_read_nrt(struct rtdm_dev_context *context,
     char uptime[32];
 
     size = sprintf(uptime, "%llu", get_pwm_width(0));
-    rtdm_printk("GPE-DRVR: Sending Pulse Width of %s ns\n", uptime);
+    rtdm_printk("GPE-DRV: Sending Pulse Width of %s ns\n", uptime);
     if(rtdm_safe_copy_to_user(user_info, buf, uptime, size))
     {
-        rtdm_printk("GPE-DRVR: ERROR: can't copy data from GPE driver\n");
+        rtdm_printk("GPE-DRV: ERROR: can't copy data from GPE driver\n");
     }
 
     return size;
@@ -80,19 +80,34 @@ static ssize_t pwm_rtdm_read_nrt(struct rtdm_dev_context *context,
 /*
  * Write in the GPE device
  *
- * This function is called when the device is written in non-realtime context.
+ * This function is called when the device is written to non-realtime context.
  *
  */
 static ssize_t pwm_rtdm_write_nrt(struct rtdm_dev_context *context,
            rtdm_user_info_t * user_info,
            const void *buf, size_t nbyte)
 {
-    int i;
-    int duty_perc = simple_strtoul(buf, NULL, 0);
-    rtdm_printk("GPE-DRVR: Received Pulse Width of %i%%\n", duty_perc);
-    for(i = 0; i < num_of_chs; i++)
-        set_pwm_width(i, duty_perc);
-    
+    int channel, tick_cnt;
+    char data[5];
+    char *channel_end;
+
+    if(nbyte != 5)
+    {
+        rtdm_printk("GPE-DRV: Received buffer of invalid length. Received length of %i, expected 5", nbyte);
+        return nbyte;
+    }
+
+    // Copy the buffer in the character array
+    memcpy(data, buf, 5);
+    // Copy the channel number
+    channel_end = &data[1];
+    channel = simple_strtoul(&data[0], &channel_end, 10);
+    // Copy the tick count
+    tick_cnt = simple_strtoul(&data[2], NULL, 10);
+
+    rtdm_printk("GPE-DRVR: Received tick count of %i  for channel %i\n", tick_cnt, channel);
+    set_pwm_width(channel, tick_cnt);
+
     return nbyte;
 }
 
