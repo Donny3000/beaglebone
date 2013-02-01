@@ -12,7 +12,6 @@
 #include <rtdm/rtdm_driver.h>
 
 #define GPIO_PIN_NUM(bank, gpio) (32 * (bank) + (gpio))
-#define CALC_PULSE_WIDTH(min, max, percentage) (min + div((max - min) * percentage, 100))
 
 typedef unsigned char uchar;
 typedef unsigned int  uint;
@@ -27,9 +26,9 @@ typedef struct gpe_ch_desc {
     uint pwmMaxWidth;
 } gpe_ch_desc_t;
 
-typedef struct gpe_irq_ch_desc {
+typedef struct rcrx_irq_ch_desc {
     struct gpio gpio_desc;
     rtdm_irq_handler_t isr;
-} gpe_irq_ch_desc_t;
+} rcrx_irq_ch_desc_t;
 
 #endif

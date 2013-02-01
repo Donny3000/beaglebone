@@ -18,12 +18,11 @@ static volatile void __iomem *pwmss_0 = NULL;
 static volatile void __iomem *pwmss_1 = NULL;
 static volatile void __iomem *pwmss_2 = NULL;
 
-static ushort           num_of_gpe_chs;                             // The number of GPE channels to initialize
-/*
- * The following three array definitions are
- * the mappings and associated data to configure
- * ePWM modules on the device.
- */
+// The number of GPE channels to initialize
+static ushort           num_of_gpe_chs;
+
+// The following three array definitions are the mappings and associated data to
+// configure ePWM modules on the device.
 static uint             channel_to_gpio[6] = {
     GPIO_14,
     GPIO_15,
@@ -41,14 +40,17 @@ static uint             gpio_config[6][2] = {
     {CONF_GPMC_AD9, (SLEW_FAST | INPUT_DIS | PULLDOWN | PULLUPDOWN_EN | M4)}
 };
 static struct           gpio gpe_output_chs[6] = {                  
-    {GPIO_PIN_NUM(3, 14), GPIOF_OUT_INIT_LOW, "ePWM Channel 1"},     // EHRPWM0A
-    {GPIO_PIN_NUM(3, 15), GPIOF_OUT_INIT_LOW, "ePWM Channel 2"},     // EHRPWM0B
-    {GPIO_PIN_NUM(1, 18), GPIOF_OUT_INIT_LOW, "ePWM Channel 3"},    // EHRPWM2A
-    {GPIO_PIN_NUM(1, 19), GPIOF_OUT_INIT_LOW, "ePWM Channel 4"},    // EHRPWM2B
-    {GPIO_PIN_NUM(0, 22), GPIOF_OUT_INIT_LOW, "ePWM Channel 5"},    // EHRPWM1A
-    {GPIO_PIN_NUM(0, 23), GPIOF_OUT_INIT_LOW, "ePWM Channel 6"},    // EHRPWM1B
+    {GPIO_PIN_NUM(3, 14), GPIOF_OUT_INIT_LOW, "ePWM Channel 1"},    // EHRPWM0A
+    {GPIO_PIN_NUM(3, 15), GPIOF_OUT_INIT_LOW, "ePWM Channel 2"},    // EHRPWM0B
+    {GPIO_PIN_NUM(1, 18), GPIOF_OUT_INIT_LOW, "ePWM Channel 3"},    // EHRPWM1A
+    {GPIO_PIN_NUM(1, 19), GPIOF_OUT_INIT_LOW, "ePWM Channel 4"},    // EHRPWM1B
+    {GPIO_PIN_NUM(0, 22), GPIOF_OUT_INIT_LOW, "ePWM Channel 5"},    // EHRPWM2A
+    {GPIO_PIN_NUM(0, 23), GPIOF_OUT_INIT_LOW, "ePWM Channel 6"},    // EHRPWM2B
 };
-static uint             gpio_requested[6];                          // Store the success/failure of requesting the gpio. If failed, don't try to free it.
+
+// Store the success/failure of requesting the gpio. If failed, don't try to
+// free it.
+static uint             gpio_requested[6];
 
 uint64_t div(uint64_t numerator, uint64_t denominator)
 {
@@ -142,7 +144,7 @@ int init_pwm(uchar num_gpe_ch)
     if(num_of_gpe_chs == 4)
     {
     	ehrpwm_0_config();
-    	//ehrpwm_1_config();
+    	ehrpwm_1_config();
     }
 
     if(num_of_gpe_chs == 6)
@@ -161,7 +163,7 @@ int ehrpwm_0_config(void)
 	
 	printk(KERN_ALERT "GPE-PWM: Memory mapping GPIO Bank 3 for ePWM channels 1 & 2\n");
     // Remap GPIO bank 3 address GPE channels 1 & 2
-    mem = ioremap(GPIO3_START_ADDR, GPIO3_SIZE);
+    mem = ioremap_nocache(GPIO3_START_ADDR, GPIO3_SIZE);
     if( !mem )
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 1 & 2 failed.\n");
@@ -188,15 +190,6 @@ int ehrpwm_0_config(void)
     if(-1 == pwmss_config(PWM_SUB_0_CONFIG_START, PWM_SUB_0_CONFIG_SIZE))
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure PWMSS#0\n");
-        return -1;
-    }
-
-    // Go ahead and save the memory-mapped PWMSS memory regions for
-    // later when we need to change the duty-cyle of the PWM signal.
-    pwmss_0 = ioremap(PWM_SUB_0_EPWM_START, PWM_SUB_0_EPWM_SIZE);
-    if( !pwmss_0 )
-    {
-        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap ePWMSS#0 register address.\n");
         return -1;
     }
 
@@ -228,6 +221,15 @@ int ehrpwm_0_config(void)
     	return -1;
     }
     
+    // Go ahead and save the memory-mapped PWMSS memory regions for
+    // later when we need to change the duty-cyle of the PWM signal.
+    pwmss_0 = ioremap_nocache(PWM_SUB_0_EPWM_START, PWM_SUB_0_EPWM_SIZE);
+    if( !pwmss_0 )
+    {
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap ePWMSS#0 register address.\n");
+        return -1;
+    }
+    
     return 0;
 }
 
@@ -239,7 +241,7 @@ int ehrpwm_1_config(void)
 	
 	printk(KERN_ALERT "GPE-PWM: Memory mapping GPIO Bank 1 for ePWM channels 2 & 4\n");
     // Remap GPIO bank 1 address GPE channels 1 & 2
-    mem = ioremap(GPIO1_START_ADDR, GPIO1_SIZE);
+    mem = ioremap_nocache(GPIO1_START_ADDR, GPIO1_SIZE);
     if( !mem )
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 2 & 4 failed.\n");
@@ -266,15 +268,6 @@ int ehrpwm_1_config(void)
     if(-1 == pwmss_config(PWM_SUB_1_CONFIG_START, PWM_SUB_1_CONFIG_SIZE))
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure PWMSS#1\n");
-        return -1;
-    }
-
-    // Go ahead and save the memory-mapped PWMSS memory regions for
-    // later when we need to change the duty-cyle of the PWM signal.
-    pwmss_1 = ioremap(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE);
-    if( !pwmss_1 )
-    {
-        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap ePWMSS#1 register address.\n");
         return -1;
     }
 
@@ -305,6 +298,15 @@ int ehrpwm_1_config(void)
     	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#1 Action-Qualifier sub-module\n");
     	return -1;
     }
+    
+    // Go ahead and save the memory-mapped PWMSS memory regions for
+    // later when we need to change the duty-cyle of the PWM signal.
+    pwmss_1 = ioremap_nocache(PWM_SUB_1_EPWM_START, PWM_SUB_1_EPWM_SIZE);
+    if( !pwmss_1 )
+    {
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap ePWMSS#1 register address.\n");
+        return -1;
+    }
 
     return 0;
 }
@@ -317,7 +319,7 @@ int ehrpwm_2_config(void)
 	
 	printk(KERN_ALERT "GPE-PWM: Memory mapping GPIO Bank 1 for ePWM channels 5 & 6\n");
 	// Remap GPIO bank 0 address for the GPE channels
-    mem = ioremap(GPIO0_START_ADDR, GPIO0_SIZE);
+    mem = ioremap_nocache(GPIO0_START_ADDR, GPIO0_SIZE);
     if( !mem )
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: GPIO memory mapping for ePWM channels 5 & 6 failed.\n");
@@ -350,15 +352,6 @@ int ehrpwm_2_config(void)
         return -1;
     }
 
-    // Go ahead and save the memory-mapped PWMSS memory regions for
-    // later when we need to change the duty-cyle of the PWM signal.
-    pwmss_2 = ioremap(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE);
-    if( !pwmss_2 )
-    {
-        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap ePWMSS#2 register address.\n");
-        return -1;
-    }
-
     // First, we will setup the Time-Based sub-module.  This module sets up the
     // period/frequency of the PWM and the counter style (Up, Down, Up & Down).
     if(-1 == ehrpwm_config_tb_module(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE))
@@ -385,6 +378,15 @@ int ehrpwm_2_config(void)
     {
     	printk(KERN_ALERT "GPE-PWM: ERROR: Failed to configure ePWMSS#2 Action-Qualifier sub-module\n");
     	return -1;
+    }
+    
+    // Go ahead and save the memory-mapped PWMSS memory regions for
+    // later when we need to change the duty-cyle of the PWM signal.
+    pwmss_2 = ioremap_nocache(PWM_SUB_2_EPWM_START, PWM_SUB_2_EPWM_SIZE);
+    if( !pwmss_2 )
+    {
+        printk(KERN_ALERT "GPE-PWM: ERROR: Failed to remap ePWMSS#2 register address.\n");
+        return -1;
     }
 
     return 0;
@@ -471,7 +473,19 @@ int ehrpwm_config_cc_module(ulong addr, uint size)
 		printk(KERN_ALERT "GPE-PWM: ERROR: ePWM counter-compare memory mapping failed\n");
 		return -1;
 	}
-	iowrite8(0x5A, mem + EPWM_CMPCTL);
+    // Disable the Dead-band Generator sub-module so that the EHRPWMxA/B
+    // signals will pass through to the GPIO pins
+    iowrite16(0x0, mem + EPWM_DBCTL);
+    // Disable the PWM-Chopper sub-module so that the EHRPWMxA/B signals
+    // will pass through to the GPIO pins
+    iowrite16(0x0, mem + EPWM_PCCTL);
+    // Disable the Trip-Zone sub-module so that the EHRPWMzA/B signals will
+    // pass through to the GPIO pins
+    iowrite16(0xF, mem + EPWM_TZCTL);
+    iowrite16(0x0, mem + EPWM_TZEINT);
+    // Configure the Counter-Compare sub-module shadowing capability.  We have
+    // it configured to update the registers immediatly.
+	iowrite8(0x5, mem + EPWM_CMPCTL);
 	// Set the falling-edge of the EPWMxA signal.  The initial pulse-width is 1ms
 	// which equals 195-196 ticks, so that's what we will set it to.
 	iowrite16(PWM_MIN_TICK_COUNT, mem + EPWM_CMPA);
@@ -534,39 +548,45 @@ void set_pwm_width(uint channel, ushort ticks)
     switch( channel )
     {
         case 0:
-	        // Set the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        // which equals 195-196 ticks, so that's what we will set it to.
-	        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_0 + EPWM_CMPA);
+	        // Set the falling-edge of the EPWMxA/B signal.  We will just
+	        // augment the minimum tick count (1ms) with the new tick count.
+	       	if( pwmss_0 )
+	        	iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_0 + EPWM_CMPA);
             break;
 
         case 1:
-	        // Set the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        // which equals 195-196 ticks, so that's what we will set it to.
-	        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_0 + EPWM_CMPB);
+	        // Set the falling-edge of the EPWMxA/B signal.  We will just
+	        // augment the minimum tick count (1ms) with the new tick count.
+	        if( pwmss_0 )
+	        	iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_0 + EPWM_CMPB);
             break;
 
         case 2:
-	        // Set the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        // which equals 195-196 ticks, so that's what we will set it to.
-	        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_1 + EPWM_CMPA);
+	        // Set the falling-edge of the EPWMxA/B signal.  We will just
+	        // augment the minimum tick count (1ms) with the new tick count.
+	        if( pwmss_1 )
+	        	iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_1 + EPWM_CMPA);
             break;
 
         case 3:
-	        // Set the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        // which equals 195-196 ticks, so that's what we will set it to.
-	        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_1 + EPWM_CMPB);
+	        // Set the falling-edge of the EPWMxA/B signal.  We will just
+	        // augment the minimum tick count (1ms) with the new tick count.
+	        if( pwmss_1 )
+		        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_1 + EPWM_CMPB);
             break;
 
         case 4:
-	        // Set the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        // which equals 195-196 ticks, so that's what we will set it to.
-	        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_2 + EPWM_CMPA);
+	        // Set the falling-edge of the EPWMxA/B signal.  We will just
+	        // augment the minimum tick count (1ms) with the new tick count.
+	        if( pwmss_2 )
+		        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_2 + EPWM_CMPA);
             break;
 
         case 5:
-	        // Set the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        // which equals 195-196 ticks, so that's what we will set it to.
-	        iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_2 + EPWM_CMPB);
+	        // Set the falling-edge of the EPWMxA/B signal.  We will just
+	        // augment the minimum tick count (1ms) with the new tick count.
+	        if( pwmss_2 )
+	        	iowrite16(PWM_MIN_TICK_COUNT + ticks, pwmss_2 + EPWM_CMPB);
             break;
     }
 }
@@ -584,33 +604,45 @@ nanosecs_rel_t get_pwm_width(uint channel)
     switch( channel )
     {
         case 0:
-	        // Get the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        pw = ioread16(pwmss_0 + EPWM_CMPA) * PWM_NS_PER_STEP;
+	        // Get the current tick count of the falling-edge of the EPWMxA/B
+	        // signal.
+	        if( pwmss_0 )
+	        	pw = ioread16(pwmss_0 + EPWM_CMPA) * PWM_NS_PER_STEP;
             break;
 
         case 1:
-	        // Get the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        pw = ioread16(pwmss_0 + EPWM_CMPB) * PWM_NS_PER_STEP;
+	        // Get the current tick count of the falling-edge of the EPWMxA/B
+	        // signal.
+	        if( pwmss_0 )
+		        pw = ioread16(pwmss_0 + EPWM_CMPB) * PWM_NS_PER_STEP;
             break;
 
         case 2:
-	        // Get the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        pw = ioread16(pwmss_1 + EPWM_CMPA) * PWM_NS_PER_STEP;
+	        // Get the current tick count of the falling-edge of the EPWMxA/B
+	        // signal.
+	        if( pwmss_1 )
+	        	pw = ioread16(pwmss_1 + EPWM_CMPA) * PWM_NS_PER_STEP;
             break;
 
         case 3:
-	        // Get the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        pw = ioread16(pwmss_1 + EPWM_CMPB) * PWM_NS_PER_STEP;
+	        // Get the current tick count of the falling-edge of the EPWMxA/B
+	        // signal.
+	        if( pwmss_1 )
+	        	pw = ioread16(pwmss_1 + EPWM_CMPB) * PWM_NS_PER_STEP;
             break;
 
         case 4:
-	        // Get the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        pw = ioread16(pwmss_2 + EPWM_CMPA) * PWM_NS_PER_STEP;
+	        // Get the current tick count of the falling-edge of the EPWMxA/B
+	        // signal.
+	        if( pwmss_2 )
+	        	pw = ioread16(pwmss_2 + EPWM_CMPA) * PWM_NS_PER_STEP;
             break;
 
         case 5:
-	        // Get the falling-edge of the EPWMxA/B signal.  The initial pulse-width is 1ms
-	        pw = ioread16(pwmss_2 + EPWM_CMPB) * PWM_NS_PER_STEP;
+	        // Get the current tick count of the falling-edge of the EPWMxA/B
+	        // signal.
+	        if( pwmss_2 )
+	        	pw = ioread16(pwmss_2 + EPWM_CMPB) * PWM_NS_PER_STEP;
             break;
     }
 
@@ -664,7 +696,7 @@ void shutdown_pwmss(ulong addr, uint size)
     {
         printk(KERN_ALERT "GPE-PWM: ERROR: ePWMSS Configuration register memory mapping failed\n");
     }
-    // Now, turn off the clock to the ePWMSS 0 module.  We will turn off the
+    // Now, turn off the clock to the ePWMSSx module.  We will turn off the
     // clocks to the eQEP and eCAP modules as well.
     iowrite32(0x222, mem + PWMSS_CONFIG_CLKCONFIG);
     // Close the memory region

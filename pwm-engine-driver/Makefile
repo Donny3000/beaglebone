@@ -3,7 +3,7 @@
 ifneq ($(KERNELRELEASE),)
     ccflags-y := -I/usr/local/xenomai/include -I/home/donny3000/workspace/beaglebone/common
     obj-m := gpe.o
-    gpe-y := gpe-drv.o gpe-pwm.o gpe-irq.o
+    gpe-y := gpe-drv.o gpe-pwm.o
 
 # Othewise, we are called directly from the command
 # line; invoke the kernel build system.

@@ -25,9 +25,10 @@ int main(int argc, char **argv)
       return 1;
     }
 
+	//for(c = 195; c <= 3906-195; c+=200)
   for(c = 0; c <= 196; c += 14)
     {
-      size = sprintf(buf, "0,%03u", c);
+      size = sprintf(buf, "4,%03u", c);
       size = rt_dev_write (device, (const void*)buf, size);
       printf("Write to device %s\t: %d bytes - %s\n", DEVICE_NAME, size, buf);
 
@@ -38,7 +39,7 @@ int main(int argc, char **argv)
       printf("Read from device %s\t: %d bytes - %s\n", DEVICE_NAME, size, buf);
     }
 
-  size = sprintf(buf, "0,000");
+  size = sprintf(buf, "4,000");
   size = rt_dev_write (device, (const void*)buf, size);
 
   // close the device

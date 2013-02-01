@@ -93,7 +93,7 @@ static ssize_t pwm_rtdm_write_nrt(struct rtdm_dev_context *context,
 
     if(nbyte != 5)
     {
-        rtdm_printk("GPE-DRV: Received buffer of invalid length. Received length of %i, expected 5", nbyte);
+        rtdm_printk("GPE-DRV: Received buffer of invalid length. Received length of %i, expected 5\n", nbyte);
         return nbyte;
     }
 
@@ -188,17 +188,6 @@ static int __init rtdm_gpio_pwm_engine_init( void )
         }
     }
 
-    // Initialize the IRQ channels
-    res = init_irq();
-    if( res )
-    {
-        rtdm_printk("GPE-DRVR: ERROR: IRQ Initialization error occurred: %i\n", res);
-    }
-    else
-    {
-        rtdm_printk("GPE-DRVR: IRQ Initialization complete\n");
-    }
-
     res = init_pwm( num_of_chs );
     if( res )
     {
@@ -221,7 +210,6 @@ static int __init rtdm_gpio_pwm_engine_init( void )
 static void __exit rtdm_gpio_pwm_engine_exit( void )
 {
     rtdm_printk("GPE-DRVR: Preparing for shutdown...\n");
-    cleanup_irq();
     cleanup_pwm();
     rtdm_dev_unregister(&gpe_device, 1000);
     rtdm_printk("GPE-DRVR: Shutdown complete.\n");
