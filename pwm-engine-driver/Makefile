@@ -12,7 +12,7 @@ else
 KDIR    ?= /home/donny3000/workspace/beaglebone-orig/linux-beaglebone/kernel
 PWD     := $(shell pwd)
 ARCH    := arm
-CROSS   := arm-linux-gnueabi-
+CROSS   := arm-linux-gnueabihf-
 
 default:
 	@echo 'Invoking build system'
