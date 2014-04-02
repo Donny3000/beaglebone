@@ -4,11 +4,8 @@
 #include <linux/module.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
-#include <linux/pwm/pwm.h>
-#include <linux/pwm/ehrpwm.h>
+#include <linux/pwm.h>
 #include <linux/platform_device.h>
-
-#include <plat/clock.h>
 
 #include "gpe-types.h"
 
