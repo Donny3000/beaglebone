@@ -78,7 +78,7 @@ uint64_t div(uint64_t numerator, uint64_t denominator)
     return q;
 }
 
-int init_pwm(uchar num_gpe_ch)
+int init_gpe_pwm(uchar num_gpe_ch)
 {
 	volatile void __iomem *mem;
 	int retval, i;
@@ -649,7 +649,7 @@ nanosecs_rel_t get_pwm_width(uint channel)
     return pw;
 }
 
-void cleanup_pwm()
+void cleanup_gpe_pwm()
 {
 	int i;
 

@@ -27,7 +27,7 @@ uint64_t div(uint64_t numerator, uint64_t denominator);
  *
  * @return 0 on success or error code in case of failure.
  */
-int init_pwm(uchar nchannels);
+int init_gpe_pwm(uchar nchannels);
 
 /*
  * Initialize the ePWM 0 Module
@@ -131,7 +131,7 @@ nanosecs_rel_t get_pwm_width(uint channel);
  *
  * @returns N\A
  */
-void cleanup_pwm(void);
+void cleanup_gpe_pwm(void);
 
 /*
  * Stop the pulse-width modulation sub-system

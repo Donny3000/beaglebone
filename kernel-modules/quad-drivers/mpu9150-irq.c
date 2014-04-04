@@ -11,9 +11,9 @@
 static irq_ch_desc_t mpu9150_irq_desc = { // P8_10 (gpio2_4) => gpmc_wen or TIMER6
 	{{GPIO_PIN_NUM(2, 4), GPIOF_IN, "MPU9150_INT"}, irq_handler_mpu9150}
 };
-static uint          irq_gpio_requested;  // Store the success/failure of requesting the IRQ gpio pin.
-static uint          irq_requested;       // Store the success/failure of requesting the MPU9150 INT IRQ channel, in addition the assigned IRQ number.
-static rtdm_irq_t    mpu9150_irq;         // IRQ descriptor for the MPU9150 INT line
+static uint          irq_gpio_requested;            // Store the success/failure of requesting the IRQ gpio pin.
+static uint          irq_requested;                 // Store the success/failure of requesting the MPU9150 INT IRQ channel, in addition the assigned IRQ number.
+static rtdm_irq_t    mpu9150_irq;                   // IRQ descriptor for the MPU9150 INT line
 
 int init_mpu9150_irq(void)
 {
@@ -127,6 +127,8 @@ int init_mpu9150_irq(void)
 	return 0;
 }
 
+// The assumption here is that when the data is ready (DATA_RDY_EN) from the
+// MPU-9150, then the interrupt line will be asserted high.
 int irq_handler_mpu9150(rtdm_irq_t *irq_handle)
 {
 	return 0;
@@ -134,4 +136,12 @@ int irq_handler_mpu9150(rtdm_irq_t *irq_handle)
 
 void cleanup_mpu9150_irq(void)
 {
+	rtdm_printk("MPU9150-IRQ: Releasing IRQ resources...\n");
+
+	if( irq_requested )
+		rtdm_irq_free( &mpu9150_irq );
+	if( irq_gpio_requested )
+		gpio_free( mpu9150_irq_desc.gpio_desc.gpio );
+
+	rtdm_printk("MPU9150-IRQ: GPE IRQ resources released\n");
 }

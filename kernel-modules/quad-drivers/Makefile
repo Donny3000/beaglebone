@@ -2,8 +2,9 @@
 # kernel build system and can use its language.
 ifneq ($(KERNELRELEASE),)
     ccflags-y := -I/usr/xenomai/include
-    obj-m := gpe.o
+    obj-m := gpe.o mpu9150.o
     gpe-y := gpe-drv.o gpe-pwm.o
+    mpu9150-y := i2c-mpu9150.o
 
 # Othewise, we are called directly from the command
 # line; invoke the kernel build system.
