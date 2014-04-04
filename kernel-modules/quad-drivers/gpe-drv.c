@@ -4,7 +4,7 @@
 #include <rtdm/rtdm_driver.h>
 #include "gpe-irq.h"
 #include "gpe-pwm.h"
-#include "gpe-types.h"
+#include "quad-drivers-types.h"
 
 #define DEVICE_NAME     "gpe"
 #define SOME_SUB_CLASS  4711
@@ -188,7 +188,7 @@ static int __init rtdm_gpio_pwm_engine_init( void )
         }
     }
 
-    res = init_pwm( num_of_chs );
+    res = init_gpe_pwm( num_of_chs );
     if( res )
     {
         rtdm_printk("GPE-DRVR: ERROR: Initialization error occurred: %i\n", res);
@@ -210,7 +210,7 @@ static int __init rtdm_gpio_pwm_engine_init( void )
 static void __exit rtdm_gpio_pwm_engine_exit( void )
 {
     rtdm_printk("GPE-DRVR: Preparing for shutdown...\n");
-    cleanup_pwm();
+    cleanup_gpe_pwm();
     rtdm_dev_unregister(&gpe_device, 1000);
     rtdm_printk("GPE-DRVR: Shutdown complete.\n");
 }

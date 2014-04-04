@@ -5,8 +5,8 @@
  *      Author: Donald R. Poole, Jr.
  */
 #include "pwm.h"
-#include "gpio.h"
 #include "gpe-pwm.h"
+#include "quad-drivers-gpio.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Donald R. Poole, Jr. <donny3000@gmail.com>");

@@ -7,7 +7,7 @@
 #include <linux/pwm.h>
 #include <linux/platform_device.h>
 
-#include "gpe-types.h"
+#include "quad-drivers-types.h"
 
 #define PWM_MIN_TICK_COUNT 0xC3
 #define PWM_MAX_TICK_COUNT 0x186

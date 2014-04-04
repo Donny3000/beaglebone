@@ -133,10 +133,11 @@
 #define INTC_ILR1               0x104
 #define INTC_ILR2               0x108
 #define INTC_ILR3               0x10C
-#define INTC_ILR72              0x120
-#define INTC_ILR73              0x124
-#define INTC_ILR74              0x128
-#define INTC_ILR75              0x12C
+#define INTC_ILR68              0x210
+#define INTC_ILR72              0x220
+#define INTC_ILR73              0x224
+#define INTC_ILR74              0x228
+#define INTC_ILR75              0x22C
 
 #define CONF_GPMC_AD0           0x800 // GPIO1_0
 #define CONF_GPMC_AD1           0x804 // GPIO1_1
@@ -150,6 +151,7 @@
 #define CONF_GPMC_AD9           0x824 // GPIO0_23
 #define CONF_GPMC_A2            0x848 // GPIO1_18
 #define CONF_GPMC_A3            0x84C // GPIO1_19
+#define CONF_GPMC_WEN           0x898 // GPIO2_4
 
 #define CONF_LCD_DATA0          0x8A0 // GPIO2_6
 #define CONF_LCD_DATA1          0x8A4 // GPIO2_7

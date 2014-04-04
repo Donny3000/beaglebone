@@ -2,9 +2,9 @@
 #define __TYPES_H
 
 /*
- * types.h
+ * quad-drivers-types.h
  *
- * GPE type definitions
+ * Quad Driver type definitions
  *
  * Author: Donald R. Poole, Jr.
  */
@@ -26,9 +26,9 @@ typedef struct gpe_ch_desc {
     uint pwmMaxWidth;
 } gpe_ch_desc_t;
 
-typedef struct rcrx_irq_ch_desc {
+typedef struct irq_ch_desc {
     struct gpio gpio_desc;
     rtdm_irq_handler_t isr;
-} rcrx_irq_ch_desc_t;
+} irq_ch_desc_t;
 
 #endif

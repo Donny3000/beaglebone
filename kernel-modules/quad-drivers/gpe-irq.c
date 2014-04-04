@@ -6,21 +6,21 @@
  * Author: Donald R. Poole, Jr.
  */
 
-#include "gpio.h"
+#include "quad-drivers-gpio.h"
 #include "gpe-irq.h"
 
-static u8                   num_of_receiver_chs=4;                              // The number of channels being read from the RC Rx
-static gpe_irq_ch_desc_t    irq_chs[4] = {
-    {{GPIO_PIN_NUM(2, 8), GPIOF_IN, "GPE_Throttle"}, irq_handler_throttle},
-    {{GPIO_PIN_NUM(2, 9), GPIOF_IN, "GPE_Roll"}, irq_handler_roll},
-    {{GPIO_PIN_NUM(2, 10), GPIOF_IN, "GPE_Pitch"}, irq_handler_pitch},
-    {{GPIO_PIN_NUM(2, 11), GPIOF_IN, "GPE_Yaw"}, irq_handler_yaw}
+static uchar         num_of_receiver_chs = 4; // The number of channels being read from the RC Rx
+static irq_ch_desc_t irq_chs[4] = {
+    {{GPIO_PIN_NUM(2, 8),  GPIOF_IN, "GPE_Throttle"}, irq_handler_throttle},
+    {{GPIO_PIN_NUM(2, 9),  GPIOF_IN, "GPE_Roll"},     irq_handler_roll},
+    {{GPIO_PIN_NUM(2, 10), GPIOF_IN, "GPE_Pitch"},    irq_handler_pitch},
+    {{GPIO_PIN_NUM(2, 11), GPIOF_IN, "GPE_Yaw"},      irq_handler_yaw}
 };
-static uint                 irq_gpio_requested[4];                              // Store the success/failure of requesting the IRQ gpio pin.
-static uint                 irq_requested[4];                                   // Store the success/failure of requesting the GPE IRQ channels, in addition the assigne IRQ number.
-static rtdm_irq_t           receiver_irqs[4];                                   // IRQ descriptors for the PWMs coming from the receiver (Throttle, roll, pitch & yaw)
+static uint       irq_gpio_requested[4]; // Store the success/failure of requesting the IRQ gpio pin.
+static uint       irq_requested[4];      // Store the success/failure of requesting the GPE IRQ channels, in addition the assigned IRQ number.
+static rtdm_irq_t receiver_irqs[4];      // IRQ descriptors for the PWMs coming from the receiver (Throttle, roll, pitch & yaw)
 
-int init_irq()
+int init_gpe_irq()
 {
     void __iomem *mem;
 	int i, retval, irq;
@@ -36,35 +36,33 @@ int init_irq()
             rtdm_printk("GPE-IRQ: Error: Failed to request GPIO pin#%i for IRQ (error %i)\n", i, retval);
             return retval;
         }
-        else
-        {
-            irq_gpio_requested[i] = 1;
-            irq = gpio_to_irq( irq_chs[i].gpio_desc.gpio );
-            if( irq >= 0 )
-            {
-                irq_requested[i] = 1;
-                retval = rtdm_irq_request(&receiver_irqs[i], irq, irq_chs[i].isr, RTDM_IRQTYPE_EDGE, irq_chs[i].gpio_desc.label, NULL);
-                switch( retval )
-                {
-                    case -EINVAL:
-                        rtdm_printk("GPE-IRQ: ERROR: rtdm_irq_request() received and invalid parameter.\n");
-                        break;
-                    case -EBUSY:
-                        rtdm_printk("GPE-IRQ: ERROR: The requested IRQ line#%i from GPIO#%i is already in use\n", irq, irq_chs[i].gpio_desc.gpio);
-                        break;
-                    case 0:
-                    default:
-                        rtdm_printk("GPE-IRQ: Initialized GPIO #%i to IRQ #%i\n", irq_chs[i].gpio_desc.gpio, irq);
-                        break;
-                }
-            }
-            else
-            {
-                irq_requested[i] = 0;
-                rtdm_printk("GPE-IRQ: ERROR: Failed to obtain IRQ number for GPIO #%i (error %i)\n", irq_chs[i].gpio_desc.gpio, retval);
-                return retval;
-            }
-        }
+
+		irq_gpio_requested[i] = 1;
+		irq = gpio_to_irq( irq_chs[i].gpio_desc.gpio );
+		if( irq >= 0 )
+		{
+			irq_requested[i] = 1;
+			retval = rtdm_irq_request(&receiver_irqs[i], irq, irq_chs[i].isr, RTDM_IRQTYPE_EDGE, irq_chs[i].gpio_desc.label, NULL);
+			switch( retval )
+			{
+				case -EINVAL:
+					rtdm_printk("GPE-IRQ: ERROR: rtdm_irq_request() received and invalid parameter.\n");
+					break;
+				case -EBUSY:
+					rtdm_printk("GPE-IRQ: ERROR: The requested IRQ line#%i from GPIO#%i is already in use\n", irq, irq_chs[i].gpio_desc.gpio);
+					break;
+				case 0:
+				default:
+					rtdm_printk("GPE-IRQ: Initialized GPIO #%i to IRQ #%i\n", irq_chs[i].gpio_desc.gpio, irq);
+					break;
+			}
+		}
+		else
+		{
+			irq_requested[i] = 0;
+			rtdm_printk("GPE-IRQ: ERROR: Failed to obtain IRQ number for GPIO #%i (error %i)\n", irq_chs[i].gpio_desc.gpio, retval);
+			return retval;
+		}
     }
 
     // 2nd Step: Configure the pin for GPIO input
@@ -73,7 +71,7 @@ int init_irq()
     if( !mem )
     {
         rtdm_printk("GPE-IRQ: ERROR: Failed to remap memory for IRQ pin configuration.\n");
-        return 0;
+        return mem;
     }
 
     // Configure GPIO1 pins 0-7 for output
@@ -90,7 +88,7 @@ int init_irq()
     if( !mem )
     {
         rtdm_printk("GPE-IRQ: ERROR: Failed to remap memory for GPIO Bank 2 IRQ pin configuration.\n");
-        return 0;
+        return mem;
     }
 
     // Enable the IRQ ability for GPIO0_26 & GPIO0_27
@@ -132,10 +130,10 @@ int init_irq()
     // For each IRQ line, set the highest priorit (0) and
     // route to the IRQ, not the FIQ (GPIOs cannot be routed
     // to FIQ)
-    iowrite8(0x0, mem + INTC_ILR72);
-    iowrite8(0x0, mem + INTC_ILR73);
-    iowrite8(0x0, mem + INTC_ILR74);
-    iowrite8(0x0, mem + INTC_ILR75);
+    iowrite8(0x0, mem + INTC_ILR72); // GPIO2_8 Interrupt Line
+    iowrite8(0x0, mem + INTC_ILR73); // GPIO2_9 Interrupt Line
+    iowrite8(0x0, mem + INTC_ILR74); // GPIO2_10 Interrupt Line
+    iowrite8(0x0, mem + INTC_ILR75); // GPIO2_11 Interrupt Line
 
     // Unmask the the GPIO lines to enable interrupts on those GPIO lines
     iowrite32((GPIO_8 | GPIO_9 | GPIO_10 | GPIO_11), mem + INTC_MIR_CLEAR2);
@@ -222,7 +220,7 @@ int irq_handler_roll(rtdm_irq_t *irq_handle)
     return 0;
 }
 
-void cleanup_irq()
+void cleanup_gpe_irq()
 {
     int i;
 
