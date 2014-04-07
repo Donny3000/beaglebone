@@ -10,6 +10,8 @@
 
 #include <linux/module.h>
 #include <linux/gpio.h>
+#include <linux/i2c.h>
+#include <native/pipe.h>
 #include <rtdm/rtdm_driver.h>
 #include "mpu9150.h"
 #include "quad-drivers-types.h"

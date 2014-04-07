@@ -4,7 +4,7 @@ ifneq ($(KERNELRELEASE),)
     ccflags-y := -I/usr/xenomai/include
     obj-m := gpe.o mpu9150.o
     gpe-y := gpe-drv.o gpe-pwm.o
-    mpu9150-y := i2c-mpu9150.o
+    mpu9150-y := mpu9150-drv.o mpu9150-irq.o
 
 # Othewise, we are called directly from the command
 # line; invoke the kernel build system.

@@ -6,27 +6,42 @@
  */
 
 #include "quad-drivers-gpio.h"
+#include "mpu9150-drv.h"
 #include "mpu9150-irq.h"
 
 static irq_ch_desc_t mpu9150_irq_desc = { // P8_10 (gpio2_4) => gpmc_wen or TIMER6
-	{{GPIO_PIN_NUM(2, 4), GPIOF_IN, "MPU9150_INT"}, irq_handler_mpu9150}
+	{GPIO_PIN_NUM(2, 4), GPIOF_IN, "MPU9150_INT"},
+	irq_handler_mpu9150
 };
 static uint          irq_gpio_requested;            // Store the success/failure of requesting the IRQ gpio pin.
 static uint          irq_requested;                 // Store the success/failure of requesting the MPU9150 INT IRQ channel, in addition the assigned IRQ number.
 static rtdm_irq_t    mpu9150_irq;                   // IRQ descriptor for the MPU9150 INT line
+static rtdm_mutex_t  irq_mutex;
+static RT_PIPE       pipe_desc;
+static const char    *synch = "<s>";
+static const size_t   synchSize = sizeof(synch);
 
 int init_mpu9150_irq(void)
 {
 	void __iomem *mem;
-	int i, retval, irq;
+	int retval, irq;
 	uint regval;
+
+	// Preliminary setup
+	rtdm_mutex_init( &irq_mutex );
+	retval = rt_pipe_create(&pipe_desc, "mpu9150", P_MINOR_AUTO, MPU9150_FIFO_DEPTH+synchSize);
+	if( retval )
+	{
+		rtdm_printk("MPU9150-IRQ: Error: Failed to create data flow pipe\n");
+		return retval;
+	}
 
 	// 1st Step: Request the GPIO lines for the IRQ channels
 	retval = gpio_request_one(mpu9150_irq_desc.gpio_desc.gpio, mpu9150_irq_desc.gpio_desc.flags, mpu9150_irq_desc.gpio_desc.label);
 	if(retval != 0)
 	{
 		irq_gpio_requested = 0;
-		rtdm_printk("MPU9150-IRQ: Error: Failed to request GPIO pin#%i for IRQ (error %i)\n", i, retval);
+		rtdm_printk("MPU9150-IRQ: Error: Failed to request GPIO pin#%i for IRQ (error %i)\n", mpu9150_irq_desc.gpio_desc.gpio, retval);
 		return retval;
 	}
 
@@ -64,12 +79,12 @@ int init_mpu9150_irq(void)
 	if( !mem )
 	{
 		rtdm_printk("MPU9150-IRQ: ERROR: Failed to remap memory for IRQ pin configuration.\n");
-		return mem;
+		return -ENOMEM;
 	}
 
 	// Configure GPIO2_4 pin 0-7 output
 	// Write the pin configuration
-	iowrite8((SLEW_FAST | INPUT_EN | PULLUP | PULLUPDOWN_DIS | M7), CONF_GPMC_WEN);
+	iowrite8((SLEW_FAST | INPUT_EN | PULLUP | PULLUPDOWN_DIS | M7), mem + CONF_GPMC_WEN);
 
 	// close the pin conf address space
 	iounmap( mem );
@@ -79,7 +94,7 @@ int init_mpu9150_irq(void)
 	if( !mem )
 	{
 		rtdm_printk("MPU9150-IRQ: ERROR: Failed to remap memory for GPIO Bank 2 IRQ pin configuration.\n");
-		return mem;
+		return -ENOMEM;
 	}
 
 	// Enable the IRQ ability for GPIO2_4
@@ -100,7 +115,7 @@ int init_mpu9150_irq(void)
 	if( !mem )
 	{
 		rtdm_printk("MPU9150-IRQ: ERROR: Failed to remap IRQ Control Registers memory\n");
-		return mem;
+		return -ENOMEM;
 	}
 
 	// Disable clock gating strategy for the. Will use more
@@ -131,6 +146,76 @@ int init_mpu9150_irq(void)
 // MPU-9150, then the interrupt line will be asserted high.
 int irq_handler_mpu9150(rtdm_irq_t *irq_handle)
 {
+	int retval, value, i;
+	ushort count, count_l;
+	RT_PIPE_MSG *msg = NULL;
+	char *msgPtr = NULL;
+
+	// Check to make sure the MPU-9150 was found
+	if( !mpu9150_device )
+		return -1;
+
+	// Now try to acquire the mutex lock
+	if((retval = rtdm_mutex_lock( &irq_mutex )) != 0)
+	{
+		rtdm_printk("MPU9150-IRQ: Failed to acquire mutex lock: ");
+		if(retval == -EIDRM)
+			rtdm_printk("Mutex already destroyed.\n");
+		else if(retval == -EPERM)
+			rtdm_printk("Illegal invocation environment detected.\n");
+
+		return retval;
+	}
+
+	// Step 1: Check to see what interrupt was sent
+	if((value = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_INT_STATUS)) >= 0)
+	{
+		if(value & 0x1) // Data Ready Interrupt
+		{
+			// Step 2a: Read the high byte count from the FIFO count
+			if((count = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_COUNTH)) < 0)
+				return -1;
+
+			// Step 2b: Read the low byte count from the FIFO count
+			if((count_l = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_COUNTL)) < 0)
+				return -1;
+
+			// Step 2c: Get the total if all went well
+			count |= (count_l & 0xFF);
+
+			msg = rt_pipe_alloc(&pipe_desc, count+synchSize);
+			if( !msg )
+				return -ENOMEM;
+			msgPtr = P_MSGPTR(msg);
+
+			// Step 3a: Copy the sync string
+			strncpy(msgPtr, synch, synchSize);
+			// Step 3b: Read the FIFO data and store the data in the pipe
+			// buffer
+			for(i = 0; i < count; i++)
+			{
+				if((value = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_R_W)) < 0)
+					*(msgPtr + synchSize + i) = (char) (value & 0xFF);
+			}
+
+			// Step 4: Send the msg down the pipe
+			if((retval = rt_pipe_send(&pipe_desc, msg, P_MSGSIZE(msg), P_NORMAL)) < 0)
+			{
+				rtdm_printk("MPU9150-IRQ: Failed to send pipe message: ");
+				if(retval == -EINVAL)
+					rtdm_printk("Invalid pipe descriptor given.\n");
+				else if(retval == -EIDRM)
+					rtdm_printk("Pipe descriptor is closed.\n");
+				else if(retval == -ENODEV || retval == -EBADF)
+					rtdm_printk("Pipe is scrambled.\n");
+
+				return retval;
+			}
+		}
+	}
+
+	rtdm_mutex_unlock( &irq_mutex );
+
 	return 0;
 }
 
@@ -142,6 +227,12 @@ void cleanup_mpu9150_irq(void)
 		rtdm_irq_free( &mpu9150_irq );
 	if( irq_gpio_requested )
 		gpio_free( mpu9150_irq_desc.gpio_desc.gpio );
+
+	// Destroy the mutex
+	rtdm_mutex_destroy( &irq_mutex );
+
+	// Close the pipe
+	rt_pipe_delete( &pipe_desc );
 
 	rtdm_printk("MPU9150-IRQ: GPE IRQ resources released\n");
 }
