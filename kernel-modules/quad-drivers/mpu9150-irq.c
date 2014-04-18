@@ -5,7 +5,14 @@
  *      Author: Donald R. Poole, Jr.
  */
 
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <native/pipe.h>
+#include <native/mutex.h>
+
+#include "mpu9150.h"
 #include "quad-drivers-gpio.h"
+#include "quad-drivers-types.h"
 #include "mpu9150-drv.h"
 #include "mpu9150-irq.h"
 
@@ -13,11 +20,11 @@ static irq_ch_desc_t mpu9150_irq_desc = { // P8_10 (gpio2_4) => gpmc_wen or TIME
 	{GPIO_PIN_NUM(2, 4), GPIOF_IN, "MPU9150_INT"},
 	irq_handler_mpu9150
 };
+
 static uint          irq_gpio_requested;            // Store the success/failure of requesting the IRQ gpio pin.
 static uint          irq_requested;                 // Store the success/failure of requesting the MPU9150 INT IRQ channel, in addition the assigned IRQ number.
-static rtdm_irq_t    mpu9150_irq;                   // IRQ descriptor for the MPU9150 INT line
-static rtdm_mutex_t  irq_mutex;
 static RT_PIPE       pipe_desc;
+static rtdm_irq_t    mpu9150_irq;                   // IRQ descriptor for the MPU9150 INT line
 static const char    *synch = "<s>";
 static const size_t   synchSize = sizeof(synch);
 
@@ -27,8 +34,9 @@ int init_mpu9150_irq(void)
 	int retval, irq;
 	uint regval;
 
-	// Preliminary setup
-	rtdm_mutex_init( &irq_mutex );
+	rtdm_printk("MPU9150-IRQ: Initializing interrupt interface...\n");
+
+	// Preliminary Setup: Step 1: Create a message pipe for use within the ISR
 	retval = rt_pipe_create(&pipe_desc, "mpu9150", P_MINOR_AUTO, MPU9150_FIFO_DEPTH+synchSize);
 	if( retval )
 	{
@@ -36,7 +44,7 @@ int init_mpu9150_irq(void)
 		return retval;
 	}
 
-	// 1st Step: Request the GPIO lines for the IRQ channels
+	// 1st Step: Request the GPIO lines for the IRQ channels and create the IRQ object
 	retval = gpio_request_one(mpu9150_irq_desc.gpio_desc.gpio, mpu9150_irq_desc.gpio_desc.flags, mpu9150_irq_desc.gpio_desc.label);
 	if(retval != 0)
 	{
@@ -44,27 +52,30 @@ int init_mpu9150_irq(void)
 		rtdm_printk("MPU9150-IRQ: Error: Failed to request GPIO pin#%i for IRQ (error %i)\n", mpu9150_irq_desc.gpio_desc.gpio, retval);
 		return retval;
 	}
-
 	irq_gpio_requested = 1;
-	irq = gpio_to_irq( mpu9150_irq_desc.gpio_desc.gpio );
 
+	irq = gpio_to_irq( mpu9150_irq_desc.gpio_desc.gpio );
 	if(irq >= 0)
 	{
 		irq_requested = 1;
-		retval = rtdm_irq_request(&mpu9150_irq, irq, mpu9150_irq_desc.isr, RTDM_IRQTYPE_EDGE, mpu9150_irq_desc.gpio_desc.label, NULL);
-		switch( retval )
+		if((retval = rtdm_irq_request(&mpu9150_irq, irq, mpu9150_irq_desc.isr, 0, mpu9150_irq_desc.gpio_desc.label, NULL)) < 0)
 		{
-			case -EINVAL:
-				rtdm_printk("MPU9150-IRQ: ERROR: rtdm_irq_request() received and invalid parameter.\n");
-				break;
-			case -EBUSY:
-				rtdm_printk("MPU9150-IRQ: ERROR: The requested IRQ line#%i from GPIO#%i is already in use\n", irq, mpu9150_irq_desc.gpio_desc.gpio);
-				break;
-			case 0:
-			default:
-				rtdm_printk("MPU9150-IRQ: Initialized GPIO #%i to IRQ #%i\n", mpu9150_irq_desc.gpio_desc.gpio, irq);
-				break;
+			switch( retval )
+			{
+				case -EINVAL:
+					rtdm_printk("MPU9150-IRQ: ERROR: Invalid parameter was given to rtdm_irq_request().\n");
+					break;
+				case -EBUSY:
+					rtdm_printk("MPU9150-IRQ: ERROR: The requested IRQ line#%i from GPIO#%i is already in use\n", irq, mpu9150_irq_desc.gpio_desc.gpio);
+					break;
+				default:
+					rtdm_printk("MPU9150-IRQ: Unknown error occurred while requesting RTDM IRQ.\n");
+			}
+
+			return retval;
 		}
+
+		rtdm_printk("MPU9150-IRQ: Initialized GPIO #%i to IRQ #%i\n", mpu9150_irq_desc.gpio_desc.gpio, irq);
 	}
 	else
 	{
@@ -139,9 +150,12 @@ int init_mpu9150_irq(void)
 	// Close the IRQ Control registers memory
 	iounmap( mem );
 
+	rtdm_printk("MPU9150-IRQ: Interrupt interface initialization complete!\n");
+
 	return 0;
 }
 
+static int is_busy = 0;
 // The assumption here is that when the data is ready (DATA_RDY_EN) from the
 // MPU-9150, then the interrupt line will be asserted high.
 int irq_handler_mpu9150(rtdm_irq_t *irq_handle)
@@ -153,70 +167,67 @@ int irq_handler_mpu9150(rtdm_irq_t *irq_handle)
 
 	// Check to make sure the MPU-9150 was found
 	if( !mpu9150_device )
-		return -1;
+		return RTDM_IRQ_HANDLED;
 
-	// Now try to acquire the mutex lock
-	if((retval = rtdm_mutex_lock( &irq_mutex )) != 0)
+	if( !is_busy )
 	{
-		rtdm_printk("MPU9150-IRQ: Failed to acquire mutex lock: ");
-		if(retval == -EIDRM)
-			rtdm_printk("Mutex already destroyed.\n");
-		else if(retval == -EPERM)
-			rtdm_printk("Illegal invocation environment detected.\n");
+		is_busy = 1;
 
-		return retval;
-	}
-
-	// Step 1: Check to see what interrupt was sent
-	if((value = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_INT_STATUS)) >= 0)
-	{
-		if(value & 0x1) // Data Ready Interrupt
+		// Step 1: Check to see what interrupt was sent
+		if((value = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_INT_STATUS)) >= 0)
 		{
-			// Step 2a: Read the high byte count from the FIFO count
-			if((count = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_COUNTH)) < 0)
-				return -1;
-
-			// Step 2b: Read the low byte count from the FIFO count
-			if((count_l = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_COUNTL)) < 0)
-				return -1;
-
-			// Step 2c: Get the total if all went well
-			count |= (count_l & 0xFF);
-
-			msg = rt_pipe_alloc(&pipe_desc, count+synchSize);
-			if( !msg )
-				return -ENOMEM;
-			msgPtr = P_MSGPTR(msg);
-
-			// Step 3a: Copy the sync string
-			strncpy(msgPtr, synch, synchSize);
-			// Step 3b: Read the FIFO data and store the data in the pipe
-			// buffer
-			for(i = 0; i < count; i++)
+			if(value & 0x1) // Data Ready Interrupt
 			{
-				if((value = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_R_W)) < 0)
-					*(msgPtr + synchSize + i) = (char) (value & 0xFF);
-			}
+				// Step 2a: Read the high byte count from the FIFO count
+				if((count = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_COUNTH)) < 0)
+					return RTDM_IRQ_HANDLED;
 
-			// Step 4: Send the msg down the pipe
-			if((retval = rt_pipe_send(&pipe_desc, msg, P_MSGSIZE(msg), P_NORMAL)) < 0)
-			{
-				rtdm_printk("MPU9150-IRQ: Failed to send pipe message: ");
-				if(retval == -EINVAL)
-					rtdm_printk("Invalid pipe descriptor given.\n");
-				else if(retval == -EIDRM)
-					rtdm_printk("Pipe descriptor is closed.\n");
-				else if(retval == -ENODEV || retval == -EBADF)
-					rtdm_printk("Pipe is scrambled.\n");
+				// Step 2b: Read the low byte count from the FIFO count
+				if((count_l = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_COUNTL)) < 0)
+					return RTDM_IRQ_HANDLED;
 
-				return retval;
+				// Step 2c: Get the total if all went well
+				count |= (count_l & 0xFF);
+
+				msg = rt_pipe_alloc(&pipe_desc, count+synchSize);
+				if( !msg )
+					return RTDM_IRQ_HANDLED;
+				msgPtr = P_MSGPTR(msg);
+
+				// Step 3a: Copy the sync string
+				strncpy(msgPtr, synch, synchSize);
+				// Step 3b: Read the FIFO data and store the data in the pipe
+				// buffer
+				for(i = 0; i < count; i++)
+				{
+					if((value = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_FIFO_R_W)) < 0)
+						*(msgPtr + synchSize + i) = (char) (value & 0xFF);
+				}
+
+				// Step 4: Send the msg down the pipe
+				if((retval = rt_pipe_send(&pipe_desc, msg, P_MSGSIZE(msg), P_NORMAL)) < 0)
+				{
+					rtdm_printk("MPU9150-IRQ: Failed to send pipe message: ");
+					if(retval == -EINVAL)
+						rtdm_printk("Invalid pipe descriptor given.\n");
+					else if(retval == -EIDRM)
+						rtdm_printk("Pipe descriptor is closed.\n");
+					else if(retval == -ENODEV || retval == -EBADF)
+						rtdm_printk("Pipe is scrambled.\n");
+
+					return RTDM_IRQ_HANDLED;
+				}
 			}
+			else
+				return RTDM_IRQ_NONE;
 		}
+
+		is_busy = 0;
 	}
 
-	rtdm_mutex_unlock( &irq_mutex );
+	rtdm_printk("Done!\n");
 
-	return 0;
+	return RTDM_IRQ_HANDLED;
 }
 
 void cleanup_mpu9150_irq(void)
@@ -224,15 +235,16 @@ void cleanup_mpu9150_irq(void)
 	rtdm_printk("MPU9150-IRQ: Releasing IRQ resources...\n");
 
 	if( irq_requested )
+	{
+		rtdm_irq_disable( &mpu9150_irq );
 		rtdm_irq_free( &mpu9150_irq );
+	}
+
 	if( irq_gpio_requested )
 		gpio_free( mpu9150_irq_desc.gpio_desc.gpio );
-
-	// Destroy the mutex
-	rtdm_mutex_destroy( &irq_mutex );
 
 	// Close the pipe
 	rt_pipe_delete( &pipe_desc );
 
-	rtdm_printk("MPU9150-IRQ: GPE IRQ resources released\n");
+	rtdm_printk("MPU9150-IRQ: IRQ resources released\n");
 }

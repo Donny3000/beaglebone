@@ -6,6 +6,7 @@
 #include <linux/clk.h>
 #include <linux/pwm.h>
 #include <linux/platform_device.h>
+#include <rtdm/rtdm_driver.h>
 
 #include "quad-drivers-types.h"
 
