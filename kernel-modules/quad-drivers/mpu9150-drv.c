@@ -20,6 +20,7 @@
 #define DRIVER_NAME     "mpu9150_driver"
 #define PERIPHERAL_NAME "Invensense MPU-9150 9-axis IMU"
 #define SUBCLASS         4711
+#define DATA_BUFFER_SIZE 10
 
 // Variable to hold the initialization state.
 static int is_irq_initialized = 0;
@@ -33,7 +34,19 @@ EXPORT_SYMBOL_GPL(mpu9150_device);
 */
 typedef struct buffer_s {
 	int size;
-	char data[1024];
+	union {
+		uint16_t accel_x;
+		uint16_t accel_y;
+		uint16_t accel_z;
+		uint16_t gyro_x;
+		uint16_t gyro_y;
+		uint16_t gyro_z;
+		uint16_t mag_x;
+		uint16_t mag_y;
+		uint16_t mag_z;
+		uint16_t temp;
+		uint16_t alldata[DATA_BUFFER_SIZE];
+	} data;
 } buffer_t;
 
 /**
@@ -557,6 +570,216 @@ static int preinit_mpu9150(const struct i2c_client *mpu9150)
 	return 0;
 }
 
+/*****************************************************************************
+ *              Begin MPU9150 Device Data Access Functions                   *
+ *****************************************************************************/
+static int mpu9150_read_accel(void)
+{
+	int hByte, lByte, val;
+
+	// Read the accelerometer x-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_ACCEL_XOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_ACCEL_XOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Accelerometer X-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.accel_x = 0;
+			return val;
+		}
+		buffer.data.accel_x = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Accelerometer X-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.accel_x = 0;
+		return val;
+	}
+
+	// Read the accelerometer y-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_ACCEL_YOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_ACCEL_YOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Accelerometer Y-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.accel_y = 0;
+			return val;
+		}
+		buffer.data.accel_y = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Accelerometer Y-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.accel_y = 0;
+		return val;
+	}
+
+	// Read the accelerometer z-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_ACCEL_ZOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_ACCEL_ZOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Accelerometer Z-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.accel_z = 0;
+			return val;
+		}
+		buffer.data.accel_z = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Accelerometer Z-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.accel_z = 0;
+		return val;
+	}
+
+	return 0;
+}
+
+static int mpu9150_read_gyro(void)
+{
+	int hByte, lByte;
+
+	// Read the gyroscope x-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_GYRO_XOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_GYRO_XOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Gyroscope X-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.gyro_x = 0;
+			return lByte;
+		}
+		buffer.data.gyro_x = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Gyroscope X-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.gyro_x = 0;
+		return hByte;
+	}
+
+	// Read the gyroscope y-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_GYRO_YOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_GYRO_YOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Gyroscope Y-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.gyro_y = 0;
+			return lByte;
+		}
+		buffer.data.gyro_y = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Gyroscope Y-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.gyro_y = 0;
+		return hByte;
+	}
+
+	// Read the gyroscope z-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_GYRO_ZOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_GYRO_ZOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Gyroscope Z-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.gyro_z = 0;
+			return lByte;
+		}
+		buffer.data.gyro_z = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Gyroscope Z-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.gyro_z = 0;
+		return hByte;
+	}
+
+	return 0;
+}
+
+static int mpu9150_read_mag(void)
+{
+	int hByte, lByte;
+
+	// Read the gyroscope x-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_CMPS_XOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_CMPS_XOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Magnetometer X-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.mag_x = 0;
+			return lByte;
+		}
+		buffer.data.mag_x = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Magnetometer X-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.mag_x = 0;
+		return hByte;
+	}
+
+	// Read the gyroscope y-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_CMPS_YOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_CMPS_YOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Magnetometer Y-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.mag_y = 0;
+			return lByte;
+		}
+		buffer.data.mag_y = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Magnetometer Y-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.mag_y = 0;
+		return hByte;
+	}
+
+	// Read the gyroscope z-axis data
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_CMPS_ZOUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_CMPS_ZOUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read Magnetometer Z-axis low value from device %s\n", mpu9150_device->name);
+			buffer.data.mag_z = 0;
+			return lByte;
+		}
+		buffer.data.mag_z = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read Magnetometer Z-axis high value from device %s\n", mpu9150_device->name);
+		buffer.data.mag_z = 0;
+		return hByte;
+	}
+
+	return 0;
+}
+
+static int mpu9150_read_temp(void)
+{
+	int hByte, lByte;
+
+	if((hByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_TEMP_OUT_H)) >= 0)
+	{
+		if((lByte = i2c_smbus_read_byte_data(mpu9150_device, MPU9150_TEMP_OUT_L)) < 0)
+		{
+			printk(KERN_ERR "I2C-MPU9150: Failed to read temperature sensor low value from device %s\n", mpu9150_device->name);
+			buffer.data.temp = 0;
+			return lByte;
+		}
+		buffer.data.temp = (hByte << 8) | lByte;
+	}
+	else
+	{
+		printk(KERN_ERR "I2C-MPU9150: Failed to read temperature high value from device %s\n", mpu9150_device->name);
+		buffer.data.temp = 0;
+		return hByte;
+	}
+
+	return 0;
+}
+
 
 /*****************************************************************************
  *              Begin the I2C driver callback functions                      *
@@ -664,35 +887,6 @@ rtdm_user_info_t * user_info)
 }
 
 /**
-* Read from the device
-*
-* This function is called when the device is read in realtime context.
-*
-*/
-static ssize_t mpu9150_rtdm_read_rt(struct rtdm_dev_context *context,
-rtdm_user_info_t * user_info, void *buf,
-size_t nbyte)
-{
-	int ret, size;
-
-	/* take the semaphore */
-	rtdm_sem_down( &sem );
-
-	/* read the kernel buffer and sent it to user space */
-	size = (buffer.size > nbyte) ? nbyte : buffer.size;
-	ret = rtdm_safe_copy_to_user(user_info, buf, buffer.data, size);
-
-	/* if an error has occured, send it to user */
-	if( ret )
-		return ret;
-
-	/* clean the kernel buffer */
-	buffer.size = 0;
-
-	return size;
-}
-
-/**
 * Write in the device
 *
 * This function is called when the device is written in realtime context.
@@ -702,20 +896,44 @@ static ssize_t mpu9150_rtdm_write_rt(struct rtdm_dev_context *context,
 rtdm_user_info_t * user_info,
 const void *buf, size_t nbyte)
 {
+	return 0;
+}
+
+/**
+* Read from the device
+*
+* This function is called when the device is read in real-time context.
+*
+*/
+static ssize_t mpu9150_rtdm_read_rt(struct rtdm_dev_context *context,
+rtdm_user_info_t * user_info, void *buf,
+size_t nbyte)
+{
 	int ret;
 
-	/* write the user buffer in the kernel buffer */
-	buffer.size = (nbyte > SIZE_MAX) ? SIZE_MAX : nbyte;
-	ret = rtdm_safe_copy_from_user(user_info, buffer.data, buf, buffer.size);
+	if( mpu9150_device )
+	{
+		/* take the semaphore */
+		rtdm_sem_down( &sem );
 
-	/* if an error has occured, send it to user */
-	if( ret )
-		return ret;
+		mpu9150_read_accel();
+		mpu9150_read_gyro();
+		mpu9150_read_mag();
+		mpu9150_read_temp();
 
-	/* release the semaphore */
-	rtdm_sem_up( &sem );
+		ret = rtdm_safe_copy_to_user(user_info, buf, buffer.data.alldata, DATA_BUFFER_SIZE);
 
-	return nbyte;
+		/* if an error has occurred, send it to user */
+		if( ret )
+			return ret;
+
+		/* release the semaphore */
+		rtdm_sem_up( &sem );
+	}
+	else
+		return 0;
+
+	return DATA_BUFFER_SIZE;
 }
 
 /*****************************************************************************
